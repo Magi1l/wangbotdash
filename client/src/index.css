@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 240 10% 3.9%; /* #0A0B0E - Discord darker */
+  --foreground: 0 0% 98%; /* #FAFAFA */
+  --muted: 240 3.7% 15.9%; /* #282B30 */
+  --muted-foreground: 240 5% 64.9%; /* #96989D */
+  --popover: 240 10% 3.9%; /* #0A0B0E */
+  --popover-foreground: 0 0% 98%; /* #FAFAFA */
+  --card: 240 3.7% 15.9%; /* #282B30 - Discord secondary */
+  --card-foreground: 0 0% 98%; /* #FAFAFA */
+  --border: 240 3.7% 15.9%; /* #282B30 */
+  --input: 240 3.7% 15.9%; /* #282B30 */
+  --primary: 207 90% 54%; /* #5865F2 - Discord blurple */
+  --primary-foreground: 211 100% 99%; /* #FEFEFF */
+  --secondary: 240 3.7% 15.9%; /* #282B30 */
+  --secondary-foreground: 0 0% 98%; /* #FAFAFA */
+  --accent: 240 3.7% 15.9%; /* #282B30 */
+  --accent-foreground: 0 0% 98%; /* #FAFAFA */
+  --destructive: 0 84.2% 60.2%; /* #ED4245 */
+  --destructive-foreground: 60 9.1% 97.8%; /* #FEFEFE */
+  --ring: 207 90% 54%; /* #5865F2 */
+  --radius: 0.5rem;
+
+  /* Discord specific colors */
+  --discord-blurple: 207 90% 54%; /* #5865F2 */
+  --discord-dark: 221 39% 11%; /* #2F3136 */
+  --discord-darker: 223 6.7% 20.6%; /* #36393F */
+  --discord-tertiary: 220 13% 18%; /* #40444B */
+  --discord-text: 218 5.1% 85.3%; /* #DCDDDE */
+  --discord-text-muted: 220 8.9% 46.1%; /* #72767D */
+  --discord-green: 139 47.3% 43.9%; /* #3BA55D */
+  --discord-yellow: 60 100% 67.8%; /* #FEE75C */
+  --discord-red: 358 83.4% 47.7%; /* #ED4245 */
+  --discord-pink: 320 100% 72.2%; /* #FF73FA */
+}
+
+.dark {
+  --background: 240 10% 3.9%; /* #0A0B0E */
+  --foreground: 0 0% 98%; /* #FAFAFA */
+  --muted: 240 3.7% 15.9%; /* #282B30 */
+  --muted-foreground: 240 5% 64.9%; /* #96989D */
+  --popover: 240 10% 3.9%; /* #0A0B0E */
+  --popover-foreground: 0 0% 98%; /* #FAFAFA */
+  --card: 240 3.7% 15.9%; /* #282B30 */
+  --card-foreground: 0 0% 98%; /* #FAFAFA */
+  --border: 240 3.7% 15.9%; /* #282B30 */
+  --input: 240 3.7% 15.9%; /* #282B30 */
+  --primary: 207 90% 54%; /* #5865F2 */
+  --primary-foreground: 211 100% 99%; /* #FEFEFF */
+  --secondary: 240 3.7% 15.9%; /* #282B30 */
+  --secondary-foreground: 0 0% 98%; /* #FAFAFA */
+  --accent: 240 3.7% 15.9%; /* #282B30 */
+  --accent-foreground: 0 0% 98%; /* #FAFAFA */
+  --destructive: 0 62.8% 30.6%; /* #7F1D1D */
+  --destructive-foreground: 0 0% 98%; /* #FAFAFA */
+  --ring: 207 90% 54%; /* #5865F2 */
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--discord-dark)) 100%);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .discord-gradient {
+    background: linear-gradient(135deg, hsl(var(--discord-blurple)) 0%, hsl(var(--discord-pink)) 100%);
+  }
+
+  .profile-card-preview {
+    background: linear-gradient(135deg, hsl(var(--discord-blurple)) 0%, hsl(var(--discord-pink)) 100%);
+    border-radius: 16px;
+    padding: 2px;
+  }
+
+  .gradient-border {
+    background: linear-gradient(135deg, hsl(var(--discord-blurple)), hsl(var(--discord-pink)));
+    padding: 1px;
+    border-radius: 12px;
+  }
+
+  .gradient-border-content {
+    background: hsl(var(--card));
+    border-radius: 11px;
+    padding: 1rem;
+  }
+
+  .color-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+  }
+
+  .achievement-badge {
+    background: linear-gradient(45deg, hsl(var(--discord-yellow)), #FAA61A);
+    animation: pulse-gentle 2s infinite;
+  }
+
+  .sidebar-nav-item {
+    @apply flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors;
+  }
+
+  .sidebar-nav-item-active {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  .sidebar-nav-item-inactive {
+    @apply text-muted-foreground hover:bg-accent hover:text-accent-foreground;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-pulse-gentle {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    0% { transform: translateY(10px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
