@@ -14,11 +14,11 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Create public directory and copy built files
-RUN mkdir -p public && cp -r dist/* public/ 2>/dev/null || true
+# Build production server
+RUN npx esbuild server/production.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/production.js
 
 # Expose port
 EXPOSE $PORT
 
-# Start the application
-CMD ["npm", "start"]
+# Start the production server
+CMD ["node", "dist/production.js"]
