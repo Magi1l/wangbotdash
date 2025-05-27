@@ -44,20 +44,7 @@ app.use((req, res, next) => {
     // Connect to MongoDB
     await connectMongoDB();
     
-    // Setup authentication
-    setupAuth(app);
-
-    const server = await registerRoutes(app);
-
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-
-      res.status(status).json({ message });
-      throw err;
-    });
-
-    // Serve static files in production
+    // Serve static files first in production
     const publicPath = path.join(process.cwd(), 'dist', 'public');
     
     // Debug: Check file structure at runtime
@@ -79,6 +66,19 @@ app.use((req, res, next) => {
     }
     
     app.use(express.static(publicPath));
+
+    // Setup authentication
+    setupAuth(app);
+
+    const server = await registerRoutes(app);
+
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+
+      res.status(status).json({ message });
+      throw err;
+    });
 
     // Fall through to index.html for SPA routing
     app.use("*", (_req, res) => {
