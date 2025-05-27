@@ -59,6 +59,25 @@ app.use((req, res, next) => {
 
     // Serve static files in production
     const publicPath = path.join(process.cwd(), 'dist', 'public');
+    
+    // Debug: Check file structure at runtime
+    console.log('=== Runtime Debug Info ===');
+    console.log('Current working directory:', process.cwd());
+    console.log('Public path:', publicPath);
+    
+    try {
+      const fs = await import('fs');
+      console.log('Files in /app/dist:', fs.readdirSync('/app/dist'));
+      if (fs.existsSync('/app/dist/public')) {
+        console.log('Files in /app/dist/public:', fs.readdirSync('/app/dist/public'));
+      } else {
+        console.log('No /app/dist/public directory found');
+      }
+      console.log('index.html exists at expected path:', fs.existsSync(path.join(publicPath, "index.html")));
+    } catch (err) {
+      console.log('Debug error:', err.message);
+    }
+    
     app.use(express.static(publicPath));
 
     // Fall through to index.html for SPA routing
