@@ -21,7 +21,8 @@ export function setupAuth(app: Express) {
   // Discord OAuth routes
   app.get('/auth/discord', (req, res) => {
     const clientId = process.env.DISCORD_CLIENT_ID;
-    const redirectUri = encodeURIComponent(`${req.protocol}://${req.get('host')}/auth/discord/callback`);
+    // Use hardcoded Railway URL to avoid proxy issues
+    const redirectUri = encodeURIComponent('https://wangbotdash.up.railway.app/auth/discord/callback');
     const scope = encodeURIComponent('identify guilds');
     const responseType = 'code';
     
@@ -49,7 +50,7 @@ export function setupAuth(app: Express) {
           client_secret: process.env.DISCORD_CLIENT_SECRET!,
           code: code as string,
           grant_type: 'authorization_code',
-          redirect_uri: `${req.protocol}://${req.get('host')}/auth/discord/callback`,
+          redirect_uri: 'https://wangbotdash.up.railway.app/auth/discord/callback',
         }),
       });
 
