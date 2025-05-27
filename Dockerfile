@@ -14,8 +14,11 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Build production server
+# Build production server  
 RUN npx esbuild server/production.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/production.js
+
+# Ensure client files are in the right place
+RUN ls -la dist/ && echo "Contents of dist directory"
 
 # Expose port
 EXPOSE $PORT

@@ -58,7 +58,7 @@ app.use((req, res, next) => {
     });
 
     // Serve static files in production
-    const publicPath = path.join(process.cwd(), 'dist');
+    const publicPath = path.join(process.cwd(), 'dist', 'public');
     app.use(express.static(publicPath));
 
     // Fall through to index.html for SPA routing
