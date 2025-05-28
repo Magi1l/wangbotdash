@@ -80,6 +80,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user's Discord guilds
+  app.get("/api/user/guilds", async (req, res) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!user || !user.accessToken) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      // Fetch user's guilds from Discord API
+      const response = await fetch('https://discord.com/api/users/@me/guilds', {
+        headers: {
+          'Authorization': `Bearer ${user.accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch guilds');
+      }
+
+      const guilds = await response.json();
+      
+      // Filter guilds where user has admin permissions
+      const adminGuilds = guilds.filter((guild: any) => {
+        const hasAdminPermissions = (guild.permissions & 0x8) === 0x8 || guild.owner;
+        return hasAdminPermissions;
+      });
+
+      res.json(adminGuilds);
+    } catch (error) {
+      console.error('Error fetching user guilds:', error);
+      res.status(500).json({ message: "Failed to fetch guilds" });
+    }
+  });
+
   // User server progress routes
   app.get("/api/servers/:serverId/users/:userId", async (req, res) => {
     try {
@@ -305,33 +339,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found in server" });
       }
 
-      // Get user's profile customization settings
+      // Get user's profile customization settings with defaults
       const user = await storage.getUser(userId);
-      const profileStyle = user?.profileCard || {
+      const profileStyle = {
         accentColor: '#5865F2',
         backgroundColor: '#36393F',
-        backgroundImage: null
+        backgroundImage: null,
+        textColor: '#FFFFFF',
+        ...(user?.profileCard || {})
       };
+
+      // Get Discord user info for avatar
+      let discordUser = null;
+      try {
+        const discordResponse = await fetch(`https://discord.com/api/users/${userId}`, {
+          headers: {
+            'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          },
+        });
+        if (discordResponse.ok) {
+          discordUser = await discordResponse.json();
+        }
+      } catch (error) {
+        console.log('Could not fetch Discord user info:', error);
+      }
 
       // Generate profile card using Canvas
       const { createCanvas, loadImage } = await import('canvas');
       const canvas = createCanvas(800, 400);
       const ctx = canvas.getContext('2d');
 
-      // Background
+      // Background with rounded corners
       ctx.fillStyle = profileStyle.backgroundColor || '#36393F';
-      ctx.fillRect(0, 0, 800, 400);
+      roundedRect(ctx, 0, 0, 800, 400, 20);
+      ctx.fill();
 
-      // User info
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 32px sans-serif';
-      ctx.fillText(`Level ${userServer.level}`, 50, 100);
+      // Draw avatar
+      const avatarSize = 120;
+      const avatarX = 50;
+      const avatarY = 50;
+
+      try {
+        let avatarUrl = null;
+        if (discordUser?.avatar) {
+          avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${discordUser.avatar}.png?size=256`;
+        } else if (discordUser?.discriminator && discordUser.discriminator !== '0') {
+          // Legacy default avatar
+          const defaultAvatarNum = parseInt(discordUser.discriminator) % 5;
+          avatarUrl = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNum}.png`;
+        } else {
+          // New default avatar
+          const defaultAvatarNum = (parseInt(userId) >> 22) % 6;
+          avatarUrl = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNum}.png`;
+        }
+
+        if (avatarUrl) {
+          const avatarImage = await loadImage(avatarUrl);
+          // Draw circular avatar
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(avatarImage, avatarX, avatarY, avatarSize, avatarSize);
+          ctx.restore();
+
+          // Avatar border
+          ctx.strokeStyle = profileStyle.accentColor || '#5865F2';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } catch (error) {
+        console.log('Could not load avatar image:', error);
+      }
+
+      // Username
+      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
+      ctx.font = 'bold 36px sans-serif';
+      const username = discordUser?.username || `User ${userId.slice(-4)}`;
+      ctx.fillText(username, avatarX + avatarSize + 30, avatarY + 45);
+
+      // Level display
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText(`Level ${userServer.level}`, avatarX + avatarSize + 30, avatarY + 85);
+
+      // Stats boxes
+      const statY = 220;
+      const statWidth = 180;
+      const statHeight = 70;
+      const statSpacing = 20;
+
+      // XP stat
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      roundedRect(ctx, 50, statY, statWidth, statHeight, 10);
+      ctx.fill();
       
-      ctx.font = '20px sans-serif';
-      ctx.fillText(`XP: ${userServer.xp}`, 50, 140);
-      ctx.fillText(`Points: ${userServer.points}`, 50, 170);
+      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(userServer.xp.toLocaleString(), 50 + statWidth / 2, statY + 35);
+      
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#B9BBBE';
+      ctx.fillText('총 경험치', 50 + statWidth / 2, statY + 55);
+
+      // Points stat
+      const pointsX = 50 + statWidth + statSpacing;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      roundedRect(ctx, pointsX, statY, statWidth, statHeight, 10);
+      ctx.fill();
+      
+      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText(userServer.points.toLocaleString(), pointsX + statWidth / 2, statY + 35);
+      
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#B9BBBE';
+      ctx.fillText('포인트', pointsX + statWidth / 2, statY + 55);
+
+      // Messages stat
+      const messagesX = pointsX + statWidth + statSpacing;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      roundedRect(ctx, messagesX, statY, statWidth, statHeight, 10);
+      ctx.fill();
+      
+      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText((userServer.totalMessages || 0).toLocaleString(), messagesX + statWidth / 2, statY + 35);
+      
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#B9BBBE';
+      ctx.fillText('메시지', messagesX + statWidth / 2, statY + 55);
 
       // Progress bar
+      const progressY = 320;
+      const progressWidth = 700;
+      const progressHeight = 25;
+
       const currentLevelXP = Math.pow(userServer.level, 2) * 100;
       const nextLevelXP = Math.pow(userServer.level + 1, 2) * 100;
       const progressXP = userServer.xp - currentLevelXP;
@@ -340,14 +485,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Progress background
       ctx.fillStyle = '#4F545C';
-      ctx.fillRect(50, 200, 700, 20);
+      roundedRect(ctx, 50, progressY, progressWidth, progressHeight, progressHeight / 2);
+      ctx.fill();
 
-      // Progress fill
-      ctx.fillStyle = profileStyle.accentColor || '#5865F2';
-      ctx.fillRect(50, 200, (700 * percentage) / 100, 20);
+      // Progress fill with gradient
+      if (percentage > 0) {
+        const gradient = ctx.createLinearGradient(50, 0, 50 + progressWidth, 0);
+        gradient.addColorStop(0, profileStyle.accentColor || '#5865F2');
+        gradient.addColorStop(1, profileStyle.accentColor || '#FF73FA');
+        
+        ctx.fillStyle = gradient;
+        const fillWidth = (progressWidth * percentage) / 100;
+        roundedRect(ctx, 50, progressY, fillWidth, progressHeight, progressHeight / 2);
+        ctx.fill();
+      }
+
+      // Progress text
+      ctx.textAlign = 'left';
+      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('다음 레벨까지', 50, progressY - 8);
+      
+      ctx.textAlign = 'right';
+      ctx.fillText(`${progressXP.toLocaleString()} / ${neededXP.toLocaleString()} XP`, 50 + progressWidth, progressY - 8);
+
+      // Reset text alignment
+      ctx.textAlign = 'left';
 
       // Convert to buffer
       const buffer = canvas.toBuffer('image/png');
+
+      // Helper function for rounded rectangles
+      function roundedRect(ctx: any, x: number, y: number, width: number, height: number, radius: number) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      }
       
       res.set({
         'Content-Type': 'image/png',
