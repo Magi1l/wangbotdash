@@ -88,24 +88,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Not authenticated" });
       }
 
-      // Fetch user's guilds from Discord API
-      const response = await fetch('https://discord.com/api/users/@me/guilds', {
+      // Fetch user's guilds from Discord API v10
+      const response = await fetch('https://discord.com/api/v10/users/@me/guilds', {
         headers: {
           'Authorization': `Bearer ${user.accessToken}`,
+          'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
         },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch guilds');
+        console.error('Discord API Error:', response.status, await response.text());
+        throw new Error(`Discord API returned ${response.status}`);
       }
 
       const guilds = await response.json();
+      console.log('Fetched guilds:', guilds?.length || 0, 'guilds');
       
       // Filter guilds where user has admin permissions
       const adminGuilds = guilds.filter((guild: any) => {
-        const hasAdminPermissions = (guild.permissions & 0x8) === 0x8 || guild.owner;
+        // Check for ADMINISTRATOR permission (0x8) or MANAGE_GUILD permission (0x20) or owner
+        const permissions = BigInt(guild.permissions || '0');
+        const hasAdminPermissions = 
+          (permissions & 0x8n) === 0x8n || // ADMINISTRATOR
+          (permissions & 0x20n) === 0x20n || // MANAGE_GUILD
+          guild.owner === true;
+        
+        console.log(`Guild ${guild.name}: permissions=${guild.permissions}, hasAdmin=${hasAdminPermissions}, isOwner=${guild.owner}`);
         return hasAdminPermissions;
       });
+      
+      console.log(`Filtered ${adminGuilds.length} admin guilds from ${guilds.length} total guilds`);
 
       res.json(adminGuilds);
     } catch (error) {
