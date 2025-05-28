@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/layout/sidebar";
 import { AuthProvider } from "@/hooks/use-auth";
 import Dashboard from "@/pages/dashboard";
+import ServersPage from "@/pages/servers";
 import ProfileEditor from "@/pages/profile-editor";
 import ServerSettings from "@/pages/server-settings";
 import Marketplace from "@/pages/marketplace";
@@ -18,7 +19,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      <Route path="/dashboard" component={DashboardLayout} />
+      <Route path="/servers" component={ServersPage} />
+      <Route path="/dashboard/:serverId?" component={DashboardLayout} />
       <Route path="/profile" component={DashboardLayout} />
       <Route path="/settings" component={DashboardLayout} />
       <Route path="/marketplace" component={DashboardLayout} />
@@ -51,10 +53,12 @@ function DashboardLayout() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
