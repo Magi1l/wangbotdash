@@ -275,12 +275,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/servers/:serverId/leaderboard", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const topUsers = await storage.getTopUsers(req.params.serverId, limit);
+      res.json(topUsers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
   app.get("/api/servers/:serverId/channel-stats", async (req, res) => {
     try {
       const stats = await storage.getChannelStats(req.params.serverId);
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch channel stats" });
+    }
+  });
+
+  // Profile card generation API
+  app.get("/api/profile-card/:userId/:serverId", async (req, res) => {
+    try {
+      const { userId, serverId } = req.params;
+      
+      // Get user data from MongoDB
+      const userServer = await storage.getUserServer(userId, serverId);
+      if (!userServer) {
+        return res.status(404).json({ message: "User not found in server" });
+      }
+
+      // Get user's profile customization settings
+      const user = await storage.getUser(userId);
+      const profileStyle = user?.profileCard || {
+        accentColor: '#5865F2',
+        backgroundColor: '#36393F',
+        backgroundImage: null
+      };
+
+      // Generate profile card using Canvas
+      const { createCanvas, loadImage } = await import('canvas');
+      const canvas = createCanvas(800, 400);
+      const ctx = canvas.getContext('2d');
+
+      // Background
+      ctx.fillStyle = profileStyle.backgroundColor || '#36393F';
+      ctx.fillRect(0, 0, 800, 400);
+
+      // User info
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 32px sans-serif';
+      ctx.fillText(`Level ${userServer.level}`, 50, 100);
+      
+      ctx.font = '20px sans-serif';
+      ctx.fillText(`XP: ${userServer.xp}`, 50, 140);
+      ctx.fillText(`Points: ${userServer.points}`, 50, 170);
+
+      // Progress bar
+      const currentLevelXP = Math.pow(userServer.level, 2) * 100;
+      const nextLevelXP = Math.pow(userServer.level + 1, 2) * 100;
+      const progressXP = userServer.xp - currentLevelXP;
+      const neededXP = nextLevelXP - currentLevelXP;
+      const percentage = Math.min((progressXP / neededXP) * 100, 100);
+
+      // Progress background
+      ctx.fillStyle = '#4F545C';
+      ctx.fillRect(50, 200, 700, 20);
+
+      // Progress fill
+      ctx.fillStyle = profileStyle.accentColor || '#5865F2';
+      ctx.fillRect(50, 200, (700 * percentage) / 100, 20);
+
+      // Convert to buffer
+      const buffer = canvas.toBuffer('image/png');
+      
+      res.set({
+        'Content-Type': 'image/png',
+        'Content-Length': buffer.length
+      });
+      res.send(buffer);
+
+    } catch (error) {
+      console.error('Profile card generation error:', error);
+      res.status(500).json({ message: "Failed to generate profile card" });
     }
   });
 
@@ -291,6 +368,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(activities);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
+
+  // Bot guild information route
+  app.get("/api/bot/guilds", async (req, res) => {
+    try {
+      if (!process.env.DISCORD_BOT_TOKEN) {
+        return res.status(500).json({ message: "Bot token not configured" });
+      }
+
+      // Fetch bot guilds from Discord API
+      const response = await fetch('https://discord.com/api/v10/users/@me/guilds', {
+        headers: {
+          'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch bot guilds:', response.status, response.statusText);
+        return res.status(500).json({ message: "Failed to fetch bot guilds from Discord" });
+      }
+
+      const botGuilds = await response.json();
+      res.json(botGuilds);
+    } catch (error) {
+      console.error('Bot guilds API error:', error);
+      res.status(500).json({ message: "Failed to fetch bot guilds" });
     }
   });
 
