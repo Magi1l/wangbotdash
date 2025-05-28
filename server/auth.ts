@@ -40,7 +40,7 @@ export function setupAuth(app: Express) {
 
     try {
       // Exchange code for access token
-      const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+      const tokenResponse = await fetch('https://discord.com/api/v10/oauth2/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -62,27 +62,35 @@ export function setupAuth(app: Express) {
       }
 
       // Get user info
-      const userResponse = await fetch('https://discord.com/api/users/@me', {
+      const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
+          'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
         },
       });
 
-      const userData = await userResponse.json();
-
       if (!userResponse.ok) {
-        console.error('User fetch failed:', userData);
+        console.error('User fetch failed:', userResponse.status, await userResponse.text());
         return res.redirect('/login?error=user_fetch_failed');
       }
 
+      const userData = await userResponse.json();
+
       // Get user guilds
-      const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
+      const guildsResponse = await fetch('https://discord.com/api/v10/users/@me/guilds', {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
+          'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
         },
       });
 
+      if (!guildsResponse.ok) {
+        console.error('Guilds fetch failed:', guildsResponse.status, await guildsResponse.text());
+        return res.redirect('/login?error=guilds_fetch_failed');
+      }
+
       const guildsData = await guildsResponse.json();
+      console.log('OAuth: Fetched', guildsData?.length || 0, 'guilds for user', userData.username);
 
       // Store user in database
       const user = {
