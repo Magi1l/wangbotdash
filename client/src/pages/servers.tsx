@@ -12,13 +12,13 @@ export default function ServersPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Filter guilds where user has admin permissions
-  const adminGuilds = (user as any)?.guilds?.filter((guild: any) => {
-    const hasAdminPermissions = (guild.permissions & 0x8) === 0x8 || guild.owner;
-    return hasAdminPermissions;
-  }) || [];
+  // Fetch user's Discord guilds from API
+  const { data: adminGuilds = [], isLoading } = useQuery<any[]>({
+    queryKey: ['/api/user/guilds'],
+    enabled: !!user,
+  });
 
-  const { data: botGuilds = [] } = useQuery({
+  const { data: botGuilds = [] } = useQuery<any[]>({
     queryKey: ['/api/bot/guilds'],
     enabled: !!user,
   });
@@ -40,7 +40,11 @@ export default function ServersPage() {
       />
 
       <div className="container mx-auto p-6">
-        {adminGuilds.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-8">
+            <p>서버 목록을 불러오는 중...</p>
+          </div>
+        ) : adminGuilds.length === 0 ? (
           <Card className="max-w-md mx-auto">
             <CardHeader className="text-center">
               <CardTitle>관리 권한이 있는 서버가 없습니다</CardTitle>
