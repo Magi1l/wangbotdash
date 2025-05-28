@@ -107,10 +107,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter guilds where user has admin permissions
       const adminGuilds = guilds.filter((guild: any) => {
         // Check for ADMINISTRATOR permission (0x8) or MANAGE_GUILD permission (0x20) or owner
-        const permissions = BigInt(guild.permissions || '0');
+        const permissions = parseInt(guild.permissions || '0');
         const hasAdminPermissions = 
-          (permissions & 0x8n) === 0x8n || // ADMINISTRATOR
-          (permissions & 0x20n) === 0x20n || // MANAGE_GUILD
+          (permissions & 0x8) === 0x8 || // ADMINISTRATOR
+          (permissions & 0x20) === 0x20 || // MANAGE_GUILD
           guild.owner === true;
         
         console.log(`Guild ${guild.name}: permissions=${guild.permissions}, hasAdmin=${hasAdminPermissions}, isOwner=${guild.owner}`);
