@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,17 @@ const backgroundOptions = [
 
 export default function ProfileEditor() {
   const { toast } = useToast();
+  const [location] = useLocation();
+  
+  // Extract serverId from URL path using window.location for accuracy
+  const currentPath = window.location.pathname;
+  const pathSegments = currentPath.split('/');
+  const serverId = pathSegments.length >= 3 ? pathSegments[2] : null;
+  
+  console.log('ProfileEditor - Window pathname:', currentPath);
+  console.log('ProfileEditor - Wouter location:', location);
+  console.log('ProfileEditor - Extracted serverId:', serverId);
+  
   const [selectedAccentColor, setSelectedAccentColor] = useState("#5865F2");
   const [selectedGradient, setSelectedGradient] = useState(["#5865F2", "#FF73FA"]);
   const [selectedBackground, setSelectedBackground] = useState(backgroundOptions[0]);

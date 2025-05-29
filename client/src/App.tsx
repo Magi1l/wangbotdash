@@ -22,11 +22,11 @@ function Router() {
       <Route path="/login" component={LoginPage} />
       <Route path="/servers" component={ServersPage} />
       <Route path="/dashboard/:serverId?" component={DashboardLayout} />
-      <Route path="/profile" component={DashboardLayout} />
-      <Route path="/settings" component={DashboardLayout} />
-      <Route path="/marketplace" component={DashboardLayout} />
-      <Route path="/achievements" component={DashboardLayout} />
-      <Route path="/analytics" component={DashboardLayout} />
+      <Route path="/profile/:serverId" component={DashboardLayout} />
+      <Route path="/settings/:serverId" component={DashboardLayout} />
+      <Route path="/marketplace/:serverId" component={DashboardLayout} />
+      <Route path="/achievements/:serverId" component={DashboardLayout} />
+      <Route path="/analytics/:serverId" component={DashboardLayout} />
       <Route path="/" component={() => <LoginPage />} />
       <Route component={NotFound} />
     </Switch>

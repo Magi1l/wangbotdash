@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,28 +12,35 @@ import { Save, Hash, Volume2, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
-// Mock server ID for demo
-const SERVER_ID = "123456789";
-
 export default function ServerSettings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [location] = useLocation();
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Extract serverId from URL path
+  const currentPath = window.location.pathname;
+  const pathSegments = currentPath.split('/');
+  const serverId = pathSegments.length >= 3 ? pathSegments[2] : null;
+  
+  console.log('ServerSettings - Extracted serverId:', serverId);
 
   const { data: channelConfigs, isLoading: channelsLoading } = useQuery({
-    queryKey: [`/api/servers/${SERVER_ID}/channels`],
+    queryKey: [`/api/servers/${serverId}/channels`],
+    enabled: !!serverId,
   });
 
   const { data: serverData } = useQuery({
-    queryKey: [`/api/servers/${SERVER_ID}`],
+    queryKey: [`/api/servers/${serverId}`],
+    enabled: !!serverId,
   });
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (settings: any) => {
-      return apiRequest("PATCH", `/api/servers/${SERVER_ID}/settings`, settings);
+      return apiRequest("PATCH", `/api/servers/${serverId}/settings`, settings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/servers/${SERVER_ID}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/servers/${serverId}`] });
       toast({
         title: "설정 저장 완료!",
         description: "서버 설정이 성공적으로 업데이트되었습니다.",

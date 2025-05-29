@@ -8,9 +8,16 @@ export function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   
-  // Extract serverId from URL path - handle any page type
-  const pathSegments = location.split('/');
+  // Extract serverId from URL path using window.location for accuracy
+  const currentPath = window.location.pathname;
+  const pathSegments = currentPath.split('/');
   const serverId = pathSegments.length >= 3 ? pathSegments[2] : null;
+  
+  // Debug logging
+  console.log('Window pathname:', currentPath);
+  console.log('Wouter location:', location);
+  console.log('Path segments:', pathSegments);
+  console.log('Extracted serverId:', serverId);
   
   const navigation = [
     { name: "대시보드", href: serverId ? `/dashboard/${serverId}` : '#', icon: BarChart3 },

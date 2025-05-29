@@ -4,15 +4,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, Trophy, Coins } from "lucide-react";
 
 // Mock server ID for demo
-const SERVER_ID = "123456789";
+// Extract serverId from URL path
+function useServerId() {
+  const currentPath = window.location.pathname;
+  const pathSegments = currentPath.split('/');
+  return pathSegments.length >= 3 ? pathSegments[2] : null;
+}
 
 export default function Analytics() {
+  const serverId = useServerId();
+  
   const { data: serverStats, isLoading: statsLoading } = useQuery({
-    queryKey: [`/api/servers/${SERVER_ID}/stats`],
+    queryKey: [`/api/servers/${serverId}/stats`],
+    enabled: !!serverId,
   });
 
   const { data: channelStats, isLoading: channelStatsLoading } = useQuery({
-    queryKey: [`/api/servers/${SERVER_ID}/channel-stats`],
+    queryKey: [`/api/servers/${serverId}/channel-stats`],
+    enabled: !!serverId,
   });
 
   const quickStats = [

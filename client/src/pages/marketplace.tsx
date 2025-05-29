@@ -7,7 +7,12 @@ import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Mock server ID for demo
-const SERVER_ID = "123456789";
+// Extract serverId from URL path
+function useServerId() {
+  const currentPath = window.location.pathname;
+  const pathSegments = currentPath.split('/');
+  return pathSegments.length >= 3 ? pathSegments[2] : null;
+}
 
 const filterTabs = [
   { id: "all", label: "전체" },
@@ -19,9 +24,11 @@ const filterTabs = [
 export default function Marketplace() {
   const { toast } = useToast();
   const [activeFilter, setActiveFilter] = useState("all");
+  const serverId = useServerId();
 
   const { data: backgrounds, isLoading } = useQuery({
-    queryKey: [`/api/servers/${SERVER_ID}/backgrounds`],
+    queryKey: [`/api/servers/${serverId}/backgrounds`],
+    enabled: !!serverId,
   });
 
   const handleUploadBackground = () => {

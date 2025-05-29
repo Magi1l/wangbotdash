@@ -9,7 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 // Mock server ID for demo
-const SERVER_ID = "123456789";
+// Extract serverId from URL path
+function useServerId() {
+  const currentPath = window.location.pathname;
+  const pathSegments = currentPath.split('/');
+  return pathSegments.length >= 3 ? pathSegments[2] : null;
+}
 
 const categoryTabs = [
   { id: "all", label: "전체" },
@@ -22,17 +27,19 @@ export default function Achievements() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeCategory, setActiveCategory] = useState("all");
+  const serverId = useServerId();
 
   const { data: achievements, isLoading } = useQuery({
-    queryKey: [`/api/servers/${SERVER_ID}/achievements`],
+    queryKey: [`/api/servers/${serverId}/achievements`],
+    enabled: !!serverId,
   });
 
   const createAchievementMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", `/api/servers/${SERVER_ID}/achievements`, data);
+      return apiRequest("POST", `/api/servers/${serverId}/achievements`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/servers/${SERVER_ID}/achievements`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/servers/${serverId}/achievements`] });
       toast({
         title: "업적 생성 완료",
         description: "새로운 업적이 성공적으로 생성되었습니다.",
@@ -45,7 +52,7 @@ export default function Achievements() {
       return apiRequest("DELETE", `/api/achievements/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/servers/${SERVER_ID}/achievements`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/servers/${serverId}/achievements`] });
       toast({
         title: "업적 삭제 완료",
         description: "업적이 성공적으로 삭제되었습니다.",
