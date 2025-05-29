@@ -12,9 +12,9 @@ export default function ServersPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Fetch user's Discord guilds from API
+  // Fetch bot's Discord guilds from API
   const { data: adminGuilds = [], isLoading } = useQuery<any[]>({
-    queryKey: ['/api/user/guilds'],
+    queryKey: ['/api/bot/guilds'],
     enabled: !!user,
   });
 
