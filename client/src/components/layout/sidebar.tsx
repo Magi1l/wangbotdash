@@ -8,28 +8,9 @@ export function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   
-  // Try multiple ways to extract serverId
-  const [match, params] = useRoute('/dashboard/:serverId');
-  const [profileMatch, profileParams] = useRoute('/profile/:serverId');
-  const [settingsMatch, settingsParams] = useRoute('/settings/:serverId');
-  const [marketplaceMatch, marketplaceParams] = useRoute('/marketplace/:serverId');
-  const [achievementsMatch, achievementsParams] = useRoute('/achievements/:serverId');
-  const [analyticsMatch, analyticsParams] = useRoute('/analytics/:serverId');
-  
-  // Extract serverId from various route matches
-  const serverId = params?.serverId || 
-                   profileParams?.serverId || 
-                   settingsParams?.serverId || 
-                   marketplaceParams?.serverId || 
-                   achievementsParams?.serverId || 
-                   analyticsParams?.serverId ||
-                   location.split('/')[2];
-  
-  // Debug: log navigation hrefs
-  console.log('Navigation links:');
-  console.log('Dashboard:', `/dashboard/${serverId}`);
-  console.log('Profile:', `/profile/${serverId}`);
-  console.log('Settings:', `/settings/${serverId}`);
+  // Extract serverId from URL path
+  const pathSegments = location.split('/');
+  const serverId = pathSegments[2]; // /dashboard/123456 -> 123456
   
   const navigation = [
     { name: "대시보드", href: serverId ? `/dashboard/${serverId}` : '#', icon: BarChart3 },
@@ -62,14 +43,9 @@ export function Sidebar() {
           const isActive = location === item.href;
           
           return (
-            <button
+            <Link
               key={item.name}
-              onClick={() => {
-                if (item.href !== '#') {
-                  window.history.pushState({}, '', item.href);
-                  window.dispatchEvent(new PopStateEvent('popstate'));
-                }
-              }}
+              href={item.href}
               className={cn(
                 "sidebar-nav-item",
                 isActive ? "sidebar-nav-item-active" : "sidebar-nav-item-inactive"
@@ -77,7 +53,7 @@ export function Sidebar() {
             >
               <Icon className="w-5 h-5" />
               <span>{item.name}</span>
-            </button>
+            </Link>
           );
         })}
       </nav>
