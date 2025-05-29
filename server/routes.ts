@@ -207,6 +207,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/servers/:serverId/stats", async (req, res) => {
+    try {
+      const stats = await storage.getServerStats(req.params.serverId);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch server stats" });
+    }
+  });
+
   app.get("/api/servers/:serverId/leaderboard", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
