@@ -72,6 +72,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get server by ID
+  app.get("/api/servers/:serverId", async (req, res) => {
+    try {
+      const server = await storage.getServer(req.params.serverId);
+      if (!server) {
+        return res.status(404).json({ message: "Server not found" });
+      }
+      res.json(server);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch server" });
+    }
+  });
+
   app.patch("/api/servers/:id/settings", async (req, res) => {
     try {
       await storage.updateServerSettings(req.params.id, req.body);
