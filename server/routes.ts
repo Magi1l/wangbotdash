@@ -130,6 +130,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user's Discord guilds
+  app.get("/api/user/guilds", requireAuth, async (req, res) => {
+    try {
+      const user = req.user;
+      if (!user?.accessToken) {
+        return res.status(401).json({ message: "No access token" });
+      }
+
+      // Fetch user's guilds from Discord API
+      const response = await fetch('https://discord.com/api/v10/users/@me/guilds', {
+        headers: {
+          'Authorization': `Bearer ${user.accessToken}`,
+          'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
+        },
+      });
+
+      if (!response.ok) {
+        console.error('User Guild API Error:', response.status, await response.text());
+        return res.status(500).json({ message: "Failed to fetch user guilds" });
+      }
+
+      const userGuilds = await response.json();
+      
+      // Filter guilds where user has admin permissions (bit 3 = ADMINISTRATOR)
+      const adminGuilds = userGuilds.filter((guild: any) => 
+        (parseInt(guild.permissions) & 0x8) === 0x8 || guild.owner
+      );
+
+      res.json(adminGuilds);
+    } catch (error) {
+      console.error('Error fetching user guilds:', error);
+      res.status(500).json({ message: "Failed to fetch user guilds" });
+    }
+  });
+
   // Get bot's Discord guilds
   app.get("/api/bot/guilds", async (req, res) => {
     try {
