@@ -51,13 +51,13 @@ function DashboardLayout() {
       <Sidebar />
       <main className="flex-1 overflow-auto">
         <Switch>
-          <Route path="/dashboard*" component={Dashboard} />
-          <Route path="/profile*" component={ProfileEditor} />
-          <Route path="/settings*" component={ServerSettings} />
-          <Route path="/marketplace*" component={Marketplace} />
-          <Route path="/achievements*" component={Achievements} />
-          <Route path="/analytics*" component={Analytics} />
-          <Route component={Dashboard} />
+          <Route path="/dashboard/:serverId" component={Dashboard} />
+          <Route path="/profile/:serverId" component={ProfileEditor} />
+          <Route path="/settings/:serverId" component={ServerSettings} />
+          <Route path="/marketplace/:serverId" component={Marketplace} />
+          <Route path="/achievements/:serverId" component={Achievements} />
+          <Route path="/analytics/:serverId" component={Analytics} />
+          <Route component={NotFound} />
         </Switch>
       </main>
     </div>
