@@ -18,10 +18,7 @@ export default function ServersPage() {
     enabled: !!user,
   });
 
-  const { data: botGuilds = [] } = useQuery<any[]>({
-    queryKey: ['/api/bot/guilds'],
-    enabled: !!user,
-  });
+
 
   const handleServerSelect = (serverId: string) => {
     setLocation(`/dashboard/${serverId}`);
