@@ -529,7 +529,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         xp: progressXP,
         maxXp: neededXP,
         rank: userRank || topUsers.length + 1,
-        profileCard: userServer.profileCard || user?.profileCard || null
+        profileCard: userServer.profileCard || {
+          backgroundColor: "#36393F",
+          accentColor: "#5865F2",
+          progressGradient: ["#5865F2", "#FF73FA"]
+        }
       };
 
       res.json(response);

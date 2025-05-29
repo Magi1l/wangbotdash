@@ -29,18 +29,22 @@ interface ProfileCardPreviewProps {
 }
 
 export function ProfileCardPreview({
-  user = { username: "gj_m", discriminator: "#1234" },
-  stats = { level: 12, xp: 429, maxXp: 1337, points: 890, rank: 44 },
+  user,
+  stats,
   style = {
-    accentColor: "#00D26A",
-    progressGradient: ["#00D26A", "#00B359"]
+    accentColor: "#5865F2",
+    progressGradient: ["#5865F2", "#FF73FA"]
   },
-  achievements = [
-    { icon: "crown", color: "#FEE75C" },
-    { icon: "star", color: "#3BA55D" },
-    { icon: "heart", color: "#FF73FA" }
-  ]
+  achievements = []
 }: ProfileCardPreviewProps) {
+  // Don't render if no user data is provided
+  if (!user || !stats) {
+    return (
+      <div className="rounded-lg p-4 w-80 mx-auto bg-[#36393F] text-white text-center">
+        <p>사용자 데이터를 불러오는 중...</p>
+      </div>
+    );
+  }
   const progressPercentage = (stats.xp / stats.maxXp) * 100;
 
   const getAchievementIcon = (iconName: string) => {

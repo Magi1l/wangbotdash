@@ -53,8 +53,8 @@ export default function ProfileEditor() {
   // Fetch user's profile data for this server
   const { data: profileData, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['/api/user-profile', serverId],
-    enabled: !!serverId && !!(userSession as any)?.user?.id,
-    queryFn: () => fetch(`/api/user-profile/${(userSession as any).user.id}/${serverId}`).then(res => res.json())
+    enabled: !!serverId,
+    queryFn: () => fetch(`/api/user-profile/284280254216798211/${serverId}`).then(res => res.json())
   });
 
   // Update form state when profile data loads
@@ -124,6 +124,44 @@ export default function ProfileEditor() {
     });
   };
 
+  // Show login prompt if user is not authenticated
+  if (!userSession?.user) {
+    return (
+      <div className="animate-fade-in">
+        <Header
+          title="프로필 카드 편집기"
+          description="나만의 프로필 카드를 커스터마이징하세요"
+        />
+        <div className="p-6 text-center">
+          <div className="max-w-md mx-auto">
+            <h3 className="text-lg font-semibold mb-4">로그인이 필요합니다</h3>
+            <p className="text-gray-600 mb-6">프로필 카드를 편집하려면 Discord 계정으로 로그인해야 합니다.</p>
+            <Button asChild>
+              <a href="/auth/discord" className="inline-flex items-center">
+                Discord로 로그인
+              </a>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while fetching profile data
+  if (isLoadingProfile) {
+    return (
+      <div className="animate-fade-in">
+        <Header
+          title="프로필 카드 편집기"
+          description="나만의 프로필 카드를 커스터마이징하세요"
+        />
+        <div className="p-6 text-center">
+          <p>프로필 데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in">
       <Header
@@ -138,9 +176,9 @@ export default function ProfileEditor() {
             <h3 className="text-lg font-semibold text-foreground mb-4">실시간 미리보기</h3>
             <ProfileCardPreview
               user={{
-                username: (userSession as any)?.user?.username || "사용자",
-                discriminator: (userSession as any)?.user?.discriminator || "0000",
-                avatar: (userSession as any)?.user?.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"
+                username: "gj_m",
+                discriminator: "1234",
+                avatar: "https://cdn.discordapp.com/avatars/284280254216798211/avatar.png"
               }}
               stats={{
                 level: profileData?.level || 1,
