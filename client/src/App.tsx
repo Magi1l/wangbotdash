@@ -57,6 +57,11 @@ function DashboardLayout() {
           <Route path="/marketplace/:serverId" component={Marketplace} />
           <Route path="/achievements/:serverId" component={Achievements} />
           <Route path="/analytics/:serverId" component={Analytics} />
+          <Route path="/profile/*" component={ProfileEditor} />
+          <Route path="/settings/*" component={ServerSettings} />
+          <Route path="/marketplace/*" component={Marketplace} />
+          <Route path="/achievements/*" component={Achievements} />
+          <Route path="/analytics/*" component={Analytics} />
           <Route component={Dashboard} />
         </Switch>
       </main>
