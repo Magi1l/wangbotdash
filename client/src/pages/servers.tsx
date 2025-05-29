@@ -109,16 +109,15 @@ export default function ServersPage() {
                       <div className="space-y-3">
                         <div className="flex items-center text-sm text-blue-600">
                           <div className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
-                          봇이 서버에 있습니다 (관리자 권한 필요)
+                          봇이 서버에 있습니다 (제한된 기능)
                         </div>
                         <Button 
                           onClick={() => handleServerSelect(guild.id)}
                           variant="outline"
                           className="w-full"
-                          disabled
                         >
                           <Settings className="w-4 h-4 mr-2" />
-                          관리 권한 없음
+                          통계 및 프로필 보기
                         </Button>
                       </div>
                     ) : (
