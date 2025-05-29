@@ -21,17 +21,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading user data
-    // In real implementation, this would check for existing session
-    setTimeout(() => {
-      setUser({
-        id: "123456789",
-        username: "관리자",
-        discriminator: "#1234",
-        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&w=40&h=40&fit=crop&crop=face"
+    // Check for existing session
+    fetch('/auth/me')
+      .then(response => {
+        if (response.ok) {
+          return response.json();
+        }
+        throw new Error('Not authenticated');
+      })
+      .then((userData) => {
+        setUser(userData);
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-      setIsLoading(false);
-    }, 1000);
   }, []);
 
   const login = (userData: User) => {
