@@ -25,8 +25,11 @@ export function Sidebar() {
                    analyticsParams?.serverId ||
                    location.split('/')[2];
   
-  console.log('Current location:', location);
-  console.log('Extracted serverId:', serverId);
+  // Debug: log navigation hrefs
+  console.log('Navigation links:');
+  console.log('Dashboard:', `/dashboard/${serverId}`);
+  console.log('Profile:', `/profile/${serverId}`);
+  console.log('Settings:', `/settings/${serverId}`);
   
   const navigation = [
     { name: "대시보드", href: serverId ? `/dashboard/${serverId}` : '#', icon: BarChart3 },
@@ -59,9 +62,14 @@ export function Sidebar() {
           const isActive = location === item.href;
           
           return (
-            <Link
+            <button
               key={item.name}
-              href={item.href}
+              onClick={() => {
+                if (item.href !== '#') {
+                  window.history.pushState({}, '', item.href);
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
               className={cn(
                 "sidebar-nav-item",
                 isActive ? "sidebar-nav-item-active" : "sidebar-nav-item-inactive"
@@ -69,7 +77,7 @@ export function Sidebar() {
             >
               <Icon className="w-5 h-5" />
               <span>{item.name}</span>
-            </Link>
+            </button>
           );
         })}
       </nav>
