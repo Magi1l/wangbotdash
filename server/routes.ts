@@ -501,6 +501,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User profile data API
+  app.get("/api/user-profile/:userId/:serverId", async (req, res) => {
+    try {
+      const { userId, serverId } = req.params;
+      
+      // Get user data from MongoDB
+      const userServer = await storage.getUserServer(userId, serverId);
+      const user = await storage.getUser(userId);
+      
+      if (!userServer) {
+        return res.status(404).json({ message: "User data not found" });
+      }
+
+      // Calculate level progress
+      const currentLevelXP = Math.pow(userServer.level, 2) * 100;
+      const nextLevelXP = Math.pow(userServer.level + 1, 2) * 100;
+      const progressXP = userServer.xp - currentLevelXP;
+      const neededXP = nextLevelXP - currentLevelXP;
+
+      // Get user rank
+      const topUsers = await storage.getTopUsers(serverId, 1000);
+      const userRank = topUsers.findIndex(u => u.userId === userId) + 1;
+
+      const response = {
+        ...userServer,
+        xp: progressXP,
+        maxXp: neededXP,
+        rank: userRank || topUsers.length + 1,
+        profileCard: userServer.profileCard || user?.profileCard || null
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
+  // Update user profile settings
+  app.patch("/api/user-profile/:userId/:serverId", async (req, res) => {
+    try {
+      const { userId, serverId } = req.params;
+      const { profileCard } = req.body;
+
+      // Update user server profile card settings
+      await storage.updateUserServer(userId, serverId, { profileCard });
+
+      res.json({ message: "Profile updated successfully" });
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Profile card generation API
   app.get("/api/profile-card/:userId/:serverId", async (req, res) => {
     try {

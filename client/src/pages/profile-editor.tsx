@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { ProfileCardPreview } from "@/components/profile-card-preview";
 import { ColorPicker } from "@/components/color-picker";
 import { Save, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 const gradientOptions = [
   { name: "Discord", colors: ["#5865F2", "#FF73FA"] },
@@ -26,6 +28,7 @@ const backgroundOptions = [
 export default function ProfileEditor() {
   const { toast } = useToast();
   const [location] = useLocation();
+  const queryClient = useQueryClient();
   
   // Extract serverId from URL path using window.location for accuracy
   const currentPath = window.location.pathname;
@@ -41,18 +44,77 @@ export default function ProfileEditor() {
   const [selectedBackground, setSelectedBackground] = useState(backgroundOptions[0]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Fetch current user data from session
+  const { data: userSession } = useQuery({
+    queryKey: ['/api/me'],
+    enabled: true
+  });
+
+  // Fetch user's profile data for this server
+  const { data: profileData, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['/api/user-profile', serverId],
+    enabled: !!serverId && !!(userSession as any)?.user?.id,
+    queryFn: () => fetch(`/api/user-profile/${(userSession as any).user.id}/${serverId}`).then(res => res.json())
+  });
+
+  // Update form state when profile data loads
+  useEffect(() => {
+    if (profileData?.profileCard) {
+      const card = profileData.profileCard;
+      if (card.accentColor) setSelectedAccentColor(card.accentColor);
+      if (card.progressGradient) setSelectedGradient(card.progressGradient);
+      if (card.backgroundColor || card.backgroundImage) {
+        const bg = backgroundOptions.find(option => 
+          (card.backgroundImage && option.value === card.backgroundImage) ||
+          (card.backgroundColor && option.value === card.backgroundColor)
+        );
+        if (bg) setSelectedBackground(bg);
+      }
+    }
+  }, [profileData]);
+
+  // Save profile mutation
+  const saveProfileMutation = useMutation({
+    mutationFn: async (profileSettings: any) => {
+      const response = await fetch(`/api/user-profile/${(userSession as any).user.id}/${serverId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileCard: {
+            accentColor: selectedAccentColor,
+            progressGradient: selectedGradient,
+            backgroundColor: selectedBackground.type === "gradient" ? selectedBackground.value : undefined,
+            backgroundImage: selectedBackground.type === "image" ? selectedBackground.value : undefined
+          }
+        })
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "프로필 저장 완료!",
+        description: "프로필 카드가 성공적으로 저장되었습니다.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/user-profile', serverId] });
+    },
+    onError: (error) => {
+      toast({
+        title: "저장 실패",
+        description: "프로필 저장 중 오류가 발생했습니다.",
+      });
+    }
+  });
+
   const handleSave = async () => {
-    setIsSaving(true);
+    if (!(userSession as any)?.user?.id || !serverId) {
+      toast({
+        title: "오류",
+        description: "사용자 정보나 서버 정보를 찾을 수 없습니다.",
+      });
+      return;
+    }
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "프로필 저장 완료!",
-      description: "프로필 카드가 성공적으로 저장되었습니다.",
-    });
-    
-    setIsSaving(false);
+    saveProfileMutation.mutate({});
   };
 
   const handleFileUpload = () => {
@@ -75,6 +137,18 @@ export default function ProfileEditor() {
           <div>
             <h3 className="text-lg font-semibold text-foreground mb-4">실시간 미리보기</h3>
             <ProfileCardPreview
+              user={{
+                username: (userSession as any)?.user?.username || "사용자",
+                discriminator: (userSession as any)?.user?.discriminator || "0000",
+                avatar: (userSession as any)?.user?.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"
+              }}
+              stats={{
+                level: profileData?.level || 1,
+                xp: profileData?.xp || 0,
+                maxXp: profileData?.maxXp || 100,
+                rank: profileData?.rank || 1,
+                points: profileData?.points || 0
+              }}
               style={{
                 accentColor: selectedAccentColor,
                 progressGradient: selectedGradient,
