@@ -4,7 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/layout/sidebar";
-import { AuthProvider } from "@/hooks/use-auth";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import Dashboard from "@/pages/dashboard";
 import ServersPage from "@/pages/servers";
 import ProfileEditor from "@/pages/profile-editor";
@@ -33,6 +34,18 @@ function Router() {
 }
 
 function DashboardLayout() {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    setLocation('/login');
+    return null;
+  }
+
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
