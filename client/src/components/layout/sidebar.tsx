@@ -1,4 +1,4 @@
-import { Link, useLocation, useParams } from "wouter";
+import { Link, useLocation, useParams, useRoute } from "wouter";
 import { cn } from "@/lib/utils";
 import { Bot, BarChart3, User, Settings, Store, Trophy, Activity } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,8 +8,25 @@ export function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   
-  // Extract serverId from current URL
-  const serverId = location.split('/')[2];
+  // Try multiple ways to extract serverId
+  const [match, params] = useRoute('/dashboard/:serverId');
+  const [profileMatch, profileParams] = useRoute('/profile/:serverId');
+  const [settingsMatch, settingsParams] = useRoute('/settings/:serverId');
+  const [marketplaceMatch, marketplaceParams] = useRoute('/marketplace/:serverId');
+  const [achievementsMatch, achievementsParams] = useRoute('/achievements/:serverId');
+  const [analyticsMatch, analyticsParams] = useRoute('/analytics/:serverId');
+  
+  // Extract serverId from various route matches
+  const serverId = params?.serverId || 
+                   profileParams?.serverId || 
+                   settingsParams?.serverId || 
+                   marketplaceParams?.serverId || 
+                   achievementsParams?.serverId || 
+                   analyticsParams?.serverId ||
+                   location.split('/')[2];
+  
+  console.log('Current location:', location);
+  console.log('Extracted serverId:', serverId);
   
   const navigation = [
     { name: "대시보드", href: serverId ? `/dashboard/${serverId}` : '#', icon: BarChart3 },
