@@ -60,8 +60,10 @@ function DashboardLayout() {
       return <Achievements />;
     } else if (location.startsWith('/analytics')) {
       return <Analytics />;
+    } else if (location === '/' || location === '/servers') {
+      return <ServersPage />;
     } else {
-      return <Dashboard />;
+      return <ServersPage />;
     }
   };
 
