@@ -552,177 +552,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Could not fetch Discord user info:', error);
       }
 
-      // Generate profile card using Canvas
-      const { createCanvas, loadImage } = await import('canvas');
-      const canvas = createCanvas(800, 400);
-      const ctx = canvas.getContext('2d');
-
-      // Background with rounded corners
-      ctx.fillStyle = profileStyle.backgroundColor || '#36393F';
-      roundedRect(ctx, 0, 0, 800, 400, 20);
-      ctx.fill();
-
-      // Draw avatar
-      const avatarSize = 120;
-      const avatarX = 50;
-      const avatarY = 50;
-
-      try {
-        let avatarUrl = null;
-        if (discordUser?.avatar) {
-          avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${discordUser.avatar}.png?size=256`;
-        } else if (discordUser?.discriminator && discordUser.discriminator !== '0') {
-          // Legacy default avatar
-          const defaultAvatarNum = parseInt(discordUser.discriminator) % 5;
-          avatarUrl = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNum}.png`;
-        } else {
-          // New default avatar
-          const defaultAvatarNum = (parseInt(userId) >> 22) % 6;
-          avatarUrl = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNum}.png`;
-        }
-
-        if (avatarUrl) {
-          const avatarImage = await loadImage(avatarUrl);
-          // Draw circular avatar
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(avatarImage, avatarX, avatarY, avatarSize, avatarSize);
-          ctx.restore();
-
-          // Avatar border
-          ctx.strokeStyle = profileStyle.accentColor || '#5865F2';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      } catch (error) {
-        console.log('Could not load avatar image:', error);
-      }
-
-      // Username
-      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
-      ctx.font = 'bold 36px sans-serif';
+      // Generate profile card as SVG
       const username = discordUser?.username || `User ${userId.slice(-4)}`;
-      ctx.fillText(username, avatarX + avatarSize + 30, avatarY + 45);
-
-      // Level display
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillText(`Level ${userServer.level}`, avatarX + avatarSize + 30, avatarY + 85);
-
-      // Stats boxes
-      const statY = 220;
-      const statWidth = 180;
-      const statHeight = 70;
-      const statSpacing = 20;
-
-      // XP stat
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-      roundedRect(ctx, 50, statY, statWidth, statHeight, 10);
-      ctx.fill();
       
-      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
-      ctx.font = 'bold 24px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(userServer.xp.toLocaleString(), 50 + statWidth / 2, statY + 35);
-      
-      ctx.font = '16px sans-serif';
-      ctx.fillStyle = '#B9BBBE';
-      ctx.fillText('총 경험치', 50 + statWidth / 2, statY + 55);
-
-      // Points stat
-      const pointsX = 50 + statWidth + statSpacing;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-      roundedRect(ctx, pointsX, statY, statWidth, statHeight, 10);
-      ctx.fill();
-      
-      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillText(userServer.points.toLocaleString(), pointsX + statWidth / 2, statY + 35);
-      
-      ctx.font = '16px sans-serif';
-      ctx.fillStyle = '#B9BBBE';
-      ctx.fillText('포인트', pointsX + statWidth / 2, statY + 55);
-
-      // Messages stat
-      const messagesX = pointsX + statWidth + statSpacing;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-      roundedRect(ctx, messagesX, statY, statWidth, statHeight, 10);
-      ctx.fill();
-      
-      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillText((userServer.totalMessages || 0).toLocaleString(), messagesX + statWidth / 2, statY + 35);
-      
-      ctx.font = '16px sans-serif';
-      ctx.fillStyle = '#B9BBBE';
-      ctx.fillText('메시지', messagesX + statWidth / 2, statY + 55);
-
-      // Progress bar
-      const progressY = 320;
-      const progressWidth = 700;
-      const progressHeight = 25;
-
-      const currentLevelXP = Math.pow(userServer.level, 2) * 100;
-      const nextLevelXP = Math.pow(userServer.level + 1, 2) * 100;
-      const progressXP = userServer.xp - currentLevelXP;
-      const neededXP = nextLevelXP - currentLevelXP;
-      const percentage = Math.min((progressXP / neededXP) * 100, 100);
-
-      // Progress background
-      ctx.fillStyle = '#4F545C';
-      roundedRect(ctx, 50, progressY, progressWidth, progressHeight, progressHeight / 2);
-      ctx.fill();
-
-      // Progress fill with gradient
-      if (percentage > 0) {
-        const gradient = ctx.createLinearGradient(50, 0, 50 + progressWidth, 0);
-        gradient.addColorStop(0, profileStyle.accentColor || '#5865F2');
-        gradient.addColorStop(1, profileStyle.accentColor || '#FF73FA');
-        
-        ctx.fillStyle = gradient;
-        const fillWidth = (progressWidth * percentage) / 100;
-        roundedRect(ctx, 50, progressY, fillWidth, progressHeight, progressHeight / 2);
-        ctx.fill();
+      let avatarUrl = null;
+      if (discordUser?.avatar) {
+        avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${discordUser.avatar}.png?size=256`;
+      } else if (discordUser?.discriminator && discordUser.discriminator !== '0') {
+        const defaultAvatarNum = parseInt(discordUser.discriminator) % 5;
+        avatarUrl = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNum}.png`;
+      } else {
+        const defaultAvatarNum = (parseInt(userId) >> 22) % 6;
+        avatarUrl = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNum}.png`;
       }
 
-      // Progress text
-      ctx.textAlign = 'left';
-      ctx.fillStyle = profileStyle.textColor || '#FFFFFF';
-      ctx.font = '14px sans-serif';
-      ctx.fillText('다음 레벨까지', 50, progressY - 8);
-      
-      ctx.textAlign = 'right';
-      ctx.fillText(`${progressXP.toLocaleString()} / ${neededXP.toLocaleString()} XP`, 50 + progressWidth, progressY - 8);
+      const svg = `
+        <svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <clipPath id="avatar-clip">
+              <circle cx="110" cy="110" r="60"/>
+            </clipPath>
+          </defs>
+          
+          <!-- Background -->
+          <rect width="800" height="400" rx="20" fill="${profileStyle.backgroundColor || '#36393F'}"/>
+          
+          <!-- Avatar -->
+          ${avatarUrl ? `
+            <image href="${avatarUrl}" x="50" y="50" width="120" height="120" clip-path="url(#avatar-clip)"/>
+            <circle cx="110" cy="110" r="60" fill="none" stroke="${profileStyle.accentColor || '#5865F2'}" stroke-width="4"/>
+          ` : `
+            <circle cx="110" cy="110" r="60" fill="${profileStyle.accentColor || '#5865F2'}"/>
+            <text x="110" y="120" text-anchor="middle" fill="white" font-size="48" font-weight="bold">?</text>
+          `}
+          
+          <!-- Username -->
+          <text x="200" y="95" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="36" font-weight="bold">${username}</text>
+          
+          <!-- Level -->
+          <text x="200" y="135" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="28" font-weight="bold">Level ${userServer.level}</text>
+          
+          <!-- Stats boxes -->
+          <rect x="50" y="220" width="180" height="70" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <text x="140" y="245" text-anchor="middle" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="14">XP</text>
+          <text x="140" y="270" text-anchor="middle" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="24" font-weight="bold">${userServer.xp}</text>
+          
+          <rect x="250" y="220" width="180" height="70" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <text x="340" y="245" text-anchor="middle" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="14">Messages</text>
+          <text x="340" y="270" text-anchor="middle" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="24" font-weight="bold">${userServer.totalMessages}</text>
+          
+          <rect x="450" y="220" width="180" height="70" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <text x="540" y="245" text-anchor="middle" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="14">Voice (min)</text>
+          <text x="540" y="270" text-anchor="middle" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="24" font-weight="bold">${Math.round(userServer.totalVoiceTime / 60)}</text>
+          
+          <!-- Progress bar -->
+          <rect x="50" y="320" width="700" height="20" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <rect x="50" y="320" width="${Math.min(700, (userServer.xp % 1000) / 1000 * 700)}" height="20" rx="10" fill="${profileStyle.accentColor || '#5865F2'}"/>
+          <text x="400" y="335" text-anchor="middle" fill="${profileStyle.textColor || '#FFFFFF'}" font-size="12">${userServer.xp % 1000}/1000 XP to next level</text>
+        </svg>
+      `;
 
-      // Reset text alignment
-      ctx.textAlign = 'left';
-
-      // Convert to buffer
-      const buffer = canvas.toBuffer('image/png');
-
-      // Helper function for rounded rectangles
-      function roundedRect(ctx: any, x: number, y: number, width: number, height: number, radius: number) {
-        ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + width - radius, y);
-        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-        ctx.lineTo(x + width, y + height - radius);
-        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-        ctx.lineTo(x + radius, y + height);
-        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.quadraticCurveTo(x, y, x + radius, y);
-        ctx.closePath();
-      }
-      
       res.set({
-        'Content-Type': 'image/png',
-        'Content-Length': buffer.length
+        'Content-Type': 'image/svg+xml',
+        'Content-Length': Buffer.byteLength(svg, 'utf8')
       });
-      res.send(buffer);
+      res.send(svg);
 
     } catch (error) {
       console.error('Profile card generation error:', error);
