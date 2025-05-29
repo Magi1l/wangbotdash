@@ -435,10 +435,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId, serverId } = req.params;
       
-      // Get user data from MongoDB
-      const userServer = await storage.getUserServer(userId, serverId);
+      // Get user data from MongoDB - use defaults if not found
+      let userServer = await storage.getUserServer(userId, serverId);
       if (!userServer) {
-        return res.status(404).json({ message: "User not found in server" });
+        // Create default user data for profile card generation
+        userServer = {
+          id: 0, // temporary ID for default user
+          userId,
+          serverId,
+          level: 1,
+          xp: 0,
+          points: 0,
+          totalMessages: 0,
+          totalVoiceTime: 0,
+          lastMessageAt: new Date(),
+          lastVoiceAt: new Date(),
+          profileCard: null
+        };
       }
 
       // Get user's profile customization settings with defaults
@@ -448,7 +461,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         backgroundColor: '#36393F',
         backgroundImage: null,
         textColor: '#FFFFFF',
-        ...(user?.profileCard || {})
+        // Use userServer's profileCard first, then user's settings
+        ...(userServer.profileCard || {}),
+        ...(user && 'profileCard' in user ? user.profileCard || {} : {})
       };
 
       // Get Discord user info for avatar
