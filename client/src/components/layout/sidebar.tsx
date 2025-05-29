@@ -6,19 +6,18 @@ import { useAuth } from "@/hooks/use-auth";
 
 export function Sidebar() {
   const [location] = useLocation();
-  const params = useParams();
   const { user } = useAuth();
   
   // Extract serverId from current URL
-  const serverId = params.serverId || location.split('/')[2];
+  const serverId = location.split('/')[2];
   
   const navigation = [
-    { name: "대시보드", href: `/dashboard/${serverId}`, icon: BarChart3 },
-    { name: "프로필 카드", href: `/profile/${serverId}`, icon: User },
-    { name: "서버 설정", href: `/settings/${serverId}`, icon: Settings },
-    { name: "배경 마켓", href: `/marketplace/${serverId}`, icon: Store },
-    { name: "업적 관리", href: `/achievements/${serverId}`, icon: Trophy },
-    { name: "통계 분석", href: `/analytics/${serverId}`, icon: Activity },
+    { name: "대시보드", href: serverId ? `/dashboard/${serverId}` : '#', icon: BarChart3 },
+    { name: "프로필 카드", href: serverId ? `/profile/${serverId}` : '#', icon: User },
+    { name: "서버 설정", href: serverId ? `/settings/${serverId}` : '#', icon: Settings },
+    { name: "배경 마켓", href: serverId ? `/marketplace/${serverId}` : '#', icon: Store },
+    { name: "업적 관리", href: serverId ? `/achievements/${serverId}` : '#', icon: Trophy },
+    { name: "통계 분석", href: serverId ? `/analytics/${serverId}` : '#', icon: Activity },
   ];
 
   return (
