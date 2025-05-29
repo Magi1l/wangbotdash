@@ -72,15 +72,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get server by ID
+  // Get server by ID - create if not exists
   app.get("/api/servers/:serverId", async (req, res) => {
     try {
-      const server = await storage.getServer(req.params.serverId);
+      let server = await storage.getServer(req.params.serverId);
+      
       if (!server) {
-        return res.status(404).json({ message: "Server not found" });
+        // Server not in database, fetch from Discord API and create
+        try {
+          const discordResponse = await fetch(`https://discord.com/api/v10/guilds/${req.params.serverId}`, {
+            headers: {
+              'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+              'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
+            },
+          });
+
+          if (discordResponse.ok) {
+            const discordGuild = await discordResponse.json();
+            
+            // Create server in database with Discord data
+            const newServer = await storage.createServer({
+              id: req.params.serverId,
+              name: discordGuild.name,
+              ownerId: discordGuild.owner_id || "unknown",
+              icon: discordGuild.icon,
+              settings: {
+                pointsPerLevel: 100,
+                levelUpMessage: "축하합니다! {user}님이 레벨 {level}에 도달했습니다!",
+                levelUpChannel: null
+              }
+            });
+            
+            return res.json(newServer);
+          } else {
+            console.log('Discord API response:', discordResponse.status, await discordResponse.text());
+            return res.status(404).json({ message: "Server not found in Discord" });
+          }
+        } catch (discordError) {
+          console.error('Error fetching Discord guild:', discordError);
+          return res.status(404).json({ message: "Server not found" });
+        }
       }
+      
       res.json(server);
     } catch (error) {
+      console.error('Server fetch error:', error);
       res.status(500).json({ message: "Failed to fetch server" });
     }
   });
