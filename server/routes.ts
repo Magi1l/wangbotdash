@@ -80,7 +80,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user's Discord guilds
+  // Get bot's Discord guilds
+  app.get("/api/bot/guilds", async (req, res) => {
+    try {
+      if (!process.env.DISCORD_BOT_TOKEN) {
+        return res.status(500).json({ message: "Bot token not configured" });
+      }
+
+      // Fetch bot's guilds from Discord API v10
+      const response = await fetch('https://discord.com/api/v10/users/@me/guilds', {
+        headers: {
+          'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Bot Guild API Error:', response.status, await response.text());
+        throw new Error(`Bot Guild API returned ${response.status}`);
+      }
+
+      const botGuilds = await response.json();
+      console.log('Bot is in', botGuilds?.length || 0, 'guilds');
+
+      res.json(botGuilds);
+    } catch (error) {
+      console.error('Error fetching bot guilds:', error);
+      res.status(500).json({ message: "Failed to fetch bot guilds" });
+    }
+  });
+
+  // Get user's Discord guilds with priority sorting
   app.get("/api/user/guilds", async (req, res) => {
     try {
       const user = (req.session as any)?.user;
@@ -88,38 +118,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Not authenticated" });
       }
 
-      // Fetch user's guilds from Discord API v10
-      const response = await fetch('https://discord.com/api/v10/users/@me/guilds', {
-        headers: {
-          'Authorization': `Bearer ${user.accessToken}`,
-          'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
-        },
-      });
+      // Fetch user's guilds and bot's guilds in parallel
+      const [userGuildsResponse, botGuildsResponse] = await Promise.all([
+        fetch('https://discord.com/api/v10/users/@me/guilds', {
+          headers: {
+            'Authorization': `Bearer ${user.accessToken}`,
+            'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
+          },
+        }),
+        fetch('https://discord.com/api/v10/users/@me/guilds', {
+          headers: {
+            'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+            'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
+          },
+        })
+      ]);
 
-      if (!response.ok) {
-        console.error('Discord API Error:', response.status, await response.text());
-        throw new Error(`Discord API returned ${response.status}`);
+      if (!userGuildsResponse.ok) {
+        console.error('User Guilds API Error:', userGuildsResponse.status, await userGuildsResponse.text());
+        throw new Error(`User Guilds API returned ${userGuildsResponse.status}`);
       }
 
-      const guilds = await response.json();
-      console.log('Fetched guilds:', guilds?.length || 0, 'guilds');
+      const userGuilds = await userGuildsResponse.json();
+      const botGuilds = botGuildsResponse.ok ? await botGuildsResponse.json() : [];
       
-      // Filter guilds where user has admin permissions
-      const adminGuilds = guilds.filter((guild: any) => {
-        // Check for ADMINISTRATOR permission (0x8) or MANAGE_GUILD permission (0x20) or owner
+      console.log('Fetched user guilds:', userGuilds?.length || 0);
+      console.log('Fetched bot guilds:', botGuilds?.length || 0);
+
+      // Create a Set of bot guild IDs for quick lookup
+      const botGuildIds = new Set(botGuilds.map((guild: any) => guild.id));
+      
+      // Process all user guilds and categorize them
+      const processedGuilds = userGuilds.map((guild: any) => {
+        // Check admin permissions
         const permissions = parseInt(guild.permissions || '0');
         const hasAdminPermissions = 
           (permissions & 0x8) === 0x8 || // ADMINISTRATOR
           (permissions & 0x20) === 0x20 || // MANAGE_GUILD
           guild.owner === true;
         
-        console.log(`Guild ${guild.name}: permissions=${guild.permissions}, hasAdmin=${hasAdminPermissions}, isOwner=${guild.owner}`);
-        return hasAdminPermissions;
+        // Check if bot is in this guild
+        const hasBotAccess = botGuildIds.has(guild.id);
+        
+        // Determine priority: admin+bot > bot only > admin only > none
+        let priority = 0;
+        if (hasAdminPermissions && hasBotAccess) priority = 3; // Admin + Bot
+        else if (hasBotAccess) priority = 2; // Bot only
+        else if (hasAdminPermissions) priority = 1; // Admin only
+        
+        console.log(`Guild ${guild.name}: admin=${hasAdminPermissions}, bot=${hasBotAccess}, priority=${priority}`);
+        
+        return {
+          ...guild,
+          hasAdminPermissions,
+          hasBotAccess,
+          priority
+        };
       });
-      
-      console.log(`Filtered ${adminGuilds.length} admin guilds from ${guilds.length} total guilds`);
 
-      res.json(adminGuilds);
+      // Filter guilds that have either admin permissions or bot access
+      const relevantGuilds = processedGuilds.filter(guild => 
+        guild.hasAdminPermissions || guild.hasBotAccess
+      );
+
+      // Sort by priority (highest first)
+      relevantGuilds.sort((a, b) => b.priority - a.priority);
+      
+      console.log(`Returning ${relevantGuilds.length} relevant guilds (${relevantGuilds.filter(g => g.priority === 3).length} admin+bot, ${relevantGuilds.filter(g => g.priority === 2).length} bot-only, ${relevantGuilds.filter(g => g.priority === 1).length} admin-only)`);
+
+      res.json(relevantGuilds);
     } catch (error) {
       console.error('Error fetching user guilds:', error);
       res.status(500).json({ message: "Failed to fetch guilds" });
