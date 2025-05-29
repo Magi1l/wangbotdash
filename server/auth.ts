@@ -176,3 +176,51 @@ export async function requireServerAdmin(req: any, res: any, next: any) {
     res.status(403).json({ message: 'Admin access required' });
   }
 }
+
+// Middleware to check if user has any access to server (admin or bot present)
+export async function requireServerAccess(req: any, res: any, next: any) {
+  const user = (req.session as any)?.user;
+  if (!user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+
+  const serverId = req.params.serverId;
+
+  try {
+    // Check if bot is in the server
+    const botGuildsResponse = await fetch('https://discord.com/api/v10/users/@me/guilds', {
+      headers: {
+        'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        'User-Agent': 'WangBot Dashboard (https://wangbotdash.up.railway.app, 1.0.0)',
+      },
+    });
+
+    const userGuilds = user.guilds || [];
+    const userGuild = userGuilds.find((g: any) => g.id === serverId);
+    
+    let hasBotAccess = false;
+    if (botGuildsResponse.ok) {
+      const botGuilds = await botGuildsResponse.json();
+      hasBotAccess = botGuilds.some((g: any) => g.id === serverId);
+    }
+
+    const hasAdminPermissions = userGuild && ((userGuild.permissions & 0x8) === 0x8 || userGuild.owner);
+
+    // Allow access if user has admin permissions OR bot is in the server
+    if (!hasAdminPermissions && !hasBotAccess) {
+      return res.status(403).json({ message: "No access to this server" });
+    }
+
+    // Store permission info for routes to use
+    req.serverAccess = {
+      hasAdminPermissions,
+      hasBotAccess,
+      isUserInServer: !!userGuild
+    };
+
+    next();
+  } catch (error) {
+    console.error('Error checking server access:', error);
+    res.status(500).json({ message: "Failed to verify server access" });
+  }
+}
