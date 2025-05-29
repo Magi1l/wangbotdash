@@ -35,7 +35,7 @@ function Router() {
 
 function DashboardLayout() {
   const { user, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -46,19 +46,30 @@ function DashboardLayout() {
     return null;
   }
 
+  // Simple path-based routing
+  const renderPage = () => {
+    if (location.startsWith('/dashboard')) {
+      return <Dashboard />;
+    } else if (location.startsWith('/profile')) {
+      return <ProfileEditor />;
+    } else if (location.startsWith('/settings')) {
+      return <ServerSettings />;
+    } else if (location.startsWith('/marketplace')) {
+      return <Marketplace />;
+    } else if (location.startsWith('/achievements')) {
+      return <Achievements />;
+    } else if (location.startsWith('/analytics')) {
+      return <Analytics />;
+    } else {
+      return <Dashboard />;
+    }
+  };
+
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
       <main className="flex-1 overflow-auto">
-        <Switch>
-          <Route path="/dashboard/:rest*" component={Dashboard} />
-          <Route path="/profile/:rest*" component={ProfileEditor} />
-          <Route path="/settings/:rest*" component={ServerSettings} />
-          <Route path="/marketplace/:rest*" component={Marketplace} />
-          <Route path="/achievements/:rest*" component={Achievements} />
-          <Route path="/analytics/:rest*" component={Analytics} />
-          <Route component={NotFound} />
-        </Switch>
+        {renderPage()}
       </main>
     </div>
   );
