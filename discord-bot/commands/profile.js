@@ -70,7 +70,7 @@ export default {
       };
 
       // Get profile card from dashboard API
-      const dashboardUrl = 'https://wangbotdash-up.railway.app'; // 대시보드 URL
+      const dashboardUrl = 'https://wangbotdash.up.railway.app'; // 대시보드 URL
       const profileCardUrl = `${dashboardUrl}/api/profile-card/${targetUser.id}/${guild.id}`;
       
       let cardBuffer;

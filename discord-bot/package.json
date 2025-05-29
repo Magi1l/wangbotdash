@@ -1,0 +1,20 @@
+{
+  "name": "discord-levelbot",
+  "version": "1.0.0",
+  "description": "Discord leveling bot with dashboard integration",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "mongodb": "^6.3.0",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2"
+  },
+  "keywords": ["discord", "bot", "leveling", "xp"],
+  "author": "LevelBot Team",
+  "license": "MIT"
+}
