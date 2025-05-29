@@ -1,3 +1,4 @@
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Header } from "@/components/layout/header";
@@ -12,11 +13,65 @@ export default function ServersPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
+  // Fetch user's Discord guilds from API
+  const { data: userGuilds = [], isLoading: userLoading } = useQuery<any[]>({
+    queryKey: ['/api/user/guilds'],
+    enabled: !!user,
+  });
+
   // Fetch bot's Discord guilds from API
-  const { data: adminGuilds = [], isLoading } = useQuery<any[]>({
+  const { data: botGuilds = [], isLoading: botLoading } = useQuery<any[]>({
     queryKey: ['/api/bot/guilds'],
     enabled: !!user,
   });
+
+  const isLoading = userLoading || botLoading;
+
+  // Combine and prioritize guilds
+  const adminGuilds = React.useMemo(() => {
+    if (!userGuilds.length && !botGuilds.length) return [];
+
+    const combined = new Map();
+    
+    // Add user's admin guilds with priority
+    userGuilds.forEach((guild: any) => {
+      combined.set(guild.id, {
+        ...guild,
+        hasAdmin: true,
+        hasBotAccess: false,
+        priority: 1 // Admin only
+      });
+    });
+
+    // Add bot guilds and update priority
+    botGuilds.forEach((guild: any) => {
+      const existing = combined.get(guild.id);
+      if (existing) {
+        // User is admin AND bot is present
+        combined.set(guild.id, {
+          ...existing,
+          hasBotAccess: true,
+          priority: 3 // Admin + Bot
+        });
+      } else {
+        // Bot only
+        combined.set(guild.id, {
+          ...guild,
+          hasAdmin: false,
+          hasBotAccess: true,
+          priority: 2 // Bot only
+        });
+      }
+    });
+
+    // Sort by priority (highest first) and then by name
+    return Array.from(combined.values()).sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return b.priority - a.priority;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [userGuilds, botGuilds]);
 
 
 
