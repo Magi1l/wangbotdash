@@ -56,7 +56,7 @@ export default function ServersPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {adminGuilds.map((guild: any) => {
-              const hasBotAccess = (botGuilds as any[]).some((botGuild: any) => botGuild.id === guild.id);
+              const hasBotAccess = guild.hasBotAccess;
               
               return (
                 <Card 
@@ -91,11 +91,11 @@ export default function ServersPage() {
                   </CardHeader>
 
                   <CardContent className="pt-0">
-                    {hasBotAccess ? (
+                    {guild.priority === 3 ? (
                       <div className="space-y-3">
                         <div className="flex items-center text-sm text-green-600">
                           <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-                          봇이 서버에 있습니다
+                          관리자 권한 + 봇 연결됨
                         </div>
                         <Button 
                           onClick={() => handleServerSelect(guild.id)}
@@ -103,6 +103,22 @@ export default function ServersPage() {
                         >
                           <Settings className="w-4 h-4 mr-2" />
                           관리하기
+                        </Button>
+                      </div>
+                    ) : guild.priority === 2 ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center text-sm text-blue-600">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
+                          봇이 서버에 있습니다 (관리자 권한 필요)
+                        </div>
+                        <Button 
+                          onClick={() => handleServerSelect(guild.id)}
+                          variant="outline"
+                          className="w-full"
+                          disabled
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          관리 권한 없음
                         </Button>
                       </div>
                     ) : (
