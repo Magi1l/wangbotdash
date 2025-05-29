@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertServerSchema, insertChannelConfigSchema, insertAchievementSchema, insertBackgroundSchema } from "@shared/schema";
+import { requireAuth, requireServerAdmin, requireServerAccess } from "./auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -225,8 +226,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Channel configuration routes
-  app.get("/api/servers/:serverId/channels", async (req, res) => {
+  // Channel configuration routes (Admin only)
+  app.get("/api/servers/:serverId/channels", requireServerAdmin, async (req, res) => {
     try {
       const configs = await storage.getChannelConfigs(req.params.serverId);
       res.json(configs);
@@ -235,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/servers/:serverId/channels", async (req, res) => {
+  app.post("/api/servers/:serverId/channels", requireServerAdmin, async (req, res) => {
     try {
       const configData = insertChannelConfigSchema.parse({
         ...req.body,
@@ -248,7 +249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/channels/:id", async (req, res) => {
+  app.patch("/api/channels/:id", requireServerAdmin, async (req, res) => {
     try {
       await storage.updateChannelConfig(parseInt(req.params.id), req.body);
       res.json({ message: "Channel config updated successfully" });
@@ -258,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Achievement routes
-  app.get("/api/servers/:serverId/achievements", async (req, res) => {
+  app.get("/api/servers/:serverId/achievements", requireServerAccess, async (req, res) => {
     try {
       const achievements = await storage.getAchievements(req.params.serverId);
       res.json(achievements);
@@ -267,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/servers/:serverId/achievements", async (req, res) => {
+  app.post("/api/servers/:serverId/achievements", requireServerAdmin, async (req, res) => {
     try {
       const achievementData = insertAchievementSchema.parse({
         ...req.body,
@@ -280,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/achievements/:id", async (req, res) => {
+  app.patch("/api/achievements/:id", requireServerAdmin, async (req, res) => {
     try {
       await storage.updateAchievement(parseInt(req.params.id), req.body);
       res.json({ message: "Achievement updated successfully" });
@@ -289,7 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/achievements/:id", async (req, res) => {
+  app.delete("/api/achievements/:id", requireServerAdmin, async (req, res) => {
     try {
       await storage.deleteAchievement(parseInt(req.params.id));
       res.json({ message: "Achievement deleted successfully" });
@@ -308,7 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Background marketplace routes
-  app.get("/api/servers/:serverId/backgrounds", async (req, res) => {
+  app.get("/api/servers/:serverId/backgrounds", requireServerAccess, async (req, res) => {
     try {
       const backgrounds = await storage.getBackgrounds(req.params.serverId);
       res.json(backgrounds);
@@ -317,7 +318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/servers/:serverId/backgrounds", upload.single('image'), async (req, res) => {
+  app.post("/api/servers/:serverId/backgrounds", requireServerAdmin, upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "Image file is required" });
@@ -341,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/backgrounds/:id", async (req, res) => {
+  app.patch("/api/backgrounds/:id", requireServerAdmin, async (req, res) => {
     try {
       await storage.updateBackground(parseInt(req.params.id), req.body);
       res.json({ message: "Background updated successfully" });
@@ -350,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/backgrounds/:id", async (req, res) => {
+  app.delete("/api/backgrounds/:id", requireServerAdmin, async (req, res) => {
     try {
       await storage.deleteBackground(parseInt(req.params.id));
       res.json({ message: "Background deleted successfully" });
@@ -359,7 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/backgrounds/:id/purchase", async (req, res) => {
+  app.post("/api/backgrounds/:id/purchase", requireServerAccess, async (req, res) => {
     try {
       const { userId, serverId } = req.body;
       await storage.purchaseBackground(userId, parseInt(req.params.id), serverId);
@@ -369,7 +370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/servers/:serverId/users/:userId/backgrounds", async (req, res) => {
+  app.get("/api/servers/:serverId/users/:userId/backgrounds", requireServerAccess, async (req, res) => {
     try {
       const backgrounds = await storage.getUserBackgrounds(req.params.userId, req.params.serverId);
       res.json(backgrounds);
@@ -378,8 +379,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Analytics routes
-  app.get("/api/servers/:serverId/stats", async (req, res) => {
+  // Analytics routes (accessible to anyone with server access)
+  app.get("/api/servers/:serverId/stats", requireServerAccess, async (req, res) => {
     try {
       const stats = await storage.getServerStats(req.params.serverId);
       res.json(stats);
@@ -388,7 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/servers/:serverId/leaderboard", async (req, res) => {
+  app.get("/api/servers/:serverId/leaderboard", requireServerAccess, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const topUsers = await storage.getTopUsers(req.params.serverId, limit);
@@ -398,7 +399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/servers/:serverId/channel-stats", async (req, res) => {
+  app.get("/api/servers/:serverId/channel-stats", requireServerAccess, async (req, res) => {
     try {
       const stats = await storage.getChannelStats(req.params.serverId);
       res.json(stats);
