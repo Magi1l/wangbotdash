@@ -8,9 +8,9 @@ export function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   
-  // Extract serverId from URL path
+  // Extract serverId from URL path - handle any page type
   const pathSegments = location.split('/');
-  const serverId = pathSegments[2]; // /dashboard/123456 -> 123456
+  const serverId = pathSegments.length >= 3 ? pathSegments[2] : null;
   
   const navigation = [
     { name: "대시보드", href: serverId ? `/dashboard/${serverId}` : '#', icon: BarChart3 },
