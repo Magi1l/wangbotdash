@@ -23,6 +23,7 @@ function Router() {
       <Route path="/servers" component={ServersPage} />
       <Route path="/dashboard/:serverId?" component={DashboardLayout} />
       <Route path="/profile/:serverId" component={DashboardLayout} />
+      <Route path="/profile-editor" component={DashboardLayout} />
       <Route path="/settings/:serverId" component={DashboardLayout} />
       <Route path="/marketplace/:serverId" component={DashboardLayout} />
       <Route path="/achievements/:serverId" component={DashboardLayout} />
@@ -35,22 +36,21 @@ function Router() {
 
 function DashboardLayout() {
   const { user, isLoading } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
   if (!user) {
-    setLocation('/login');
-    return null;
+    return <LoginPage />;
   }
 
   // Simple path-based routing
   const renderPage = () => {
     if (location.startsWith('/dashboard')) {
       return <Dashboard />;
-    } else if (location.startsWith('/profile')) {
+    } else if (location.startsWith('/profile-editor') || location.startsWith('/profile')) {
       return <ProfileEditor />;
     } else if (location.startsWith('/settings')) {
       return <ServerSettings />;
