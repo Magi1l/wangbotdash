@@ -69,12 +69,12 @@ export function Sidebar() {
       <div className="p-4 border-t border-border">
         <div className="flex items-center space-x-3">
           <Avatar className="w-10 h-10">
-            <AvatarImage src="https://cdn.discordapp.com/avatars/284280254216798211/avatar.png" />
-            <AvatarFallback>gj</AvatarFallback>
+            <AvatarImage src={user?.avatar} />
+            <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">gj_m</p>
-            <p className="text-xs text-muted-foreground">#1234</p>
+            <p className="text-sm font-medium text-foreground">{user?.username}</p>
+            <p className="text-xs text-muted-foreground">{user?.discriminator}</p>
           </div>
         </div>
       </div>

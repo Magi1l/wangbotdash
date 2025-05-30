@@ -46,15 +46,15 @@ export default function ProfileEditor() {
 
   // Fetch current user data from session
   const { data: userSession } = useQuery({
-    queryKey: ['/api/me'],
+    queryKey: ['/auth/me'],
     enabled: true
   });
 
   // Fetch user's profile data for this server
   const { data: profileData, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['/api/user-profile', serverId],
-    enabled: !!serverId,
-    queryFn: () => fetch(`/api/user-profile/284280254216798211/${serverId}`).then(res => res.json())
+    enabled: !!serverId && !!(userSession as any)?.id,
+    queryFn: () => fetch(`/api/user-profile/${(userSession as any).id}/${serverId}`).then(res => res.json())
   });
 
   // Update form state when profile data loads
@@ -76,7 +76,7 @@ export default function ProfileEditor() {
   // Save profile mutation
   const saveProfileMutation = useMutation({
     mutationFn: async (profileSettings: any) => {
-      const response = await fetch(`/api/user-profile/${(userSession as any).user.id}/${serverId}`, {
+      const response = await fetch(`/api/user-profile/${(userSession as any).id}/${serverId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -124,10 +124,8 @@ export default function ProfileEditor() {
     });
   };
 
-  // Temporarily skip login check to show real data
-  // TODO: Fix Discord OAuth session issue
-  /*
-  if (!userSession?.user) {
+  // Show login prompt if user is not authenticated
+  if (!(userSession as any)?.id) {
     return (
       <div className="animate-fade-in">
         <Header
@@ -148,7 +146,6 @@ export default function ProfileEditor() {
       </div>
     );
   }
-  */
 
   // Show loading state while fetching profile data
   if (isLoadingProfile) {
@@ -179,9 +176,9 @@ export default function ProfileEditor() {
             <h3 className="text-lg font-semibold text-foreground mb-4">실시간 미리보기</h3>
             <ProfileCardPreview
               user={{
-                username: "gj_m",
-                discriminator: "1234",
-                avatar: "https://cdn.discordapp.com/avatars/284280254216798211/avatar.png"
+                username: (userSession as any)?.username || "사용자",
+                discriminator: (userSession as any)?.discriminator || "0000",
+                avatar: (userSession as any)?.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"
               }}
               stats={{
                 level: profileData?.level || 1,
