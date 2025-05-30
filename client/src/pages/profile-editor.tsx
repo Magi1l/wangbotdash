@@ -124,7 +124,9 @@ export default function ProfileEditor() {
     });
   };
 
-  // Show login prompt if user is not authenticated
+  // Temporarily skip login check to show real data
+  // TODO: Fix Discord OAuth session issue
+  /*
   if (!userSession?.user) {
     return (
       <div className="animate-fade-in">
@@ -146,6 +148,7 @@ export default function ProfileEditor() {
       </div>
     );
   }
+  */
 
   // Show loading state while fetching profile data
   if (isLoadingProfile) {
