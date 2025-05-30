@@ -1,10 +1,13 @@
 import { Link, useLocation, useParams, useRoute } from "wouter";
 import { cn } from "@/lib/utils";
-import { Bot, BarChart3, User, Settings, Store, Trophy, Activity } from "lucide-react";
+import { Bot, BarChart3, User, Settings, Store, Trophy, Activity, Menu, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useState } from "react";
 
-export function Sidebar() {
+const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => {
   const [location] = useLocation();
   const { user } = useAuth();
   
@@ -12,12 +15,6 @@ export function Sidebar() {
   const currentPath = window.location.pathname;
   const pathSegments = currentPath.split('/');
   const serverId = pathSegments.length >= 3 ? pathSegments[2] : null;
-  
-  // Debug logging
-  console.log('Window pathname:', currentPath);
-  console.log('Wouter location:', location);
-  console.log('Path segments:', pathSegments);
-  console.log('Extracted serverId:', serverId);
   
   const navigation = [
     { name: "대시보드", href: serverId ? `/dashboard/${serverId}` : '#', icon: BarChart3 },
@@ -29,7 +26,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Logo Section */}
       <div className="p-6 border-b border-border">
         <div className="flex items-center space-x-3">
@@ -57,6 +54,7 @@ export function Sidebar() {
                 "sidebar-nav-item",
                 isActive ? "sidebar-nav-item-active" : "sidebar-nav-item-inactive"
               )}
+              onClick={onItemClick}
             >
               <Icon className="w-5 h-5" />
               <span>{item.name}</span>
@@ -78,6 +76,33 @@ export function Sidebar() {
           </div>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+};
+
+export function Sidebar() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex w-64 bg-card border-r border-border flex-col">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile Menu Button */}
+      <div className="lg:hidden">
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="fixed top-4 left-4 z-50 lg:hidden">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0">
+            <SidebarContent onItemClick={() => setIsOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </div>
+    </>
   );
 }

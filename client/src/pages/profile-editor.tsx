@@ -30,14 +30,11 @@ export default function ProfileEditor() {
   const [location] = useLocation();
   const queryClient = useQueryClient();
   
-  // Extract serverId from URL path using window.location for accuracy
-  const currentPath = window.location.pathname;
-  const pathSegments = currentPath.split('/');
-  const serverId = pathSegments.length >= 3 ? pathSegments[2] : null;
+  // Extract serverId from URL path
+  const pathSegments = location.split('/');
+  const serverId = pathSegments[pathSegments.length - 1];
   
-  console.log('ProfileEditor - Window pathname:', currentPath);
-  console.log('ProfileEditor - Wouter location:', location);
-  console.log('ProfileEditor - Extracted serverId:', serverId);
+  console.log('ProfileEditor - Using server ID from URL:', serverId);
   
   const [selectedAccentColor, setSelectedAccentColor] = useState("#5865F2");
   const [selectedGradient, setSelectedGradient] = useState(["#5865F2", "#FF73FA"]);
@@ -52,9 +49,17 @@ export default function ProfileEditor() {
 
   // Fetch user's profile data for this server
   const { data: profileData, isLoading: isLoadingProfile } = useQuery({
-    queryKey: ['/api/user-profile', serverId],
+    queryKey: ['/api/user-profile', serverId, (userSession as any)?.id],
     enabled: !!serverId && !!(userSession as any)?.id,
-    queryFn: () => fetch(`/api/user-profile/${(userSession as any).id}/${serverId}`).then(res => res.json())
+    queryFn: () => fetch(`/api/user-profile/${(userSession as any).id}/${serverId}`)
+      .then(res => {
+        console.log('Profile API response status:', res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log('Profile data received:', data);
+        return data;
+      })
   });
 
   // Update form state when profile data loads

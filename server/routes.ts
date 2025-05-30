@@ -514,11 +514,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User data not found" });
       }
 
-      // Calculate level progress
-      const currentLevelXP = Math.pow(userServer.level, 2) * 100;
-      const nextLevelXP = Math.pow(userServer.level + 1, 2) * 100;
-      const progressXP = userServer.xp - currentLevelXP;
-      const neededXP = nextLevelXP - currentLevelXP;
+      // 올바른 XP 계산 공식
+      const BASE_XP_PER_LEVEL = 100;
+      const XP_MULTIPLIER = 1.2;
+      
+      const calculateRequiredXP = (level: number) => {
+        return Math.floor(BASE_XP_PER_LEVEL * Math.pow(level, XP_MULTIPLIER));
+      };
+      
+      // 현재 레벨의 시작 XP와 다음 레벨까지 필요한 XP 계산
+      const currentLevelStartXP = userServer.level === 1 ? 0 : calculateRequiredXP(userServer.level - 1);
+      const nextLevelRequiredXP = calculateRequiredXP(userServer.level);
+      const progressXP = Math.max(0, userServer.xp - currentLevelStartXP);
+      const neededXP = nextLevelRequiredXP - currentLevelStartXP;
 
       // Get user rank
       const topUsers = await storage.getTopUsers(serverId, 1000);
@@ -559,7 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Profile card generation API
+  // Profile card generation API (GET)
   app.get("/api/profile-card/:userId/:serverId", async (req, res) => {
     try {
       const { userId, serverId } = req.params;
@@ -682,6 +690,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile card generation API (POST) - for bot with custom data
+  app.post("/api/profile-card/:userId/:serverId", async (req, res) => {
+    try {
+      const { userId, serverId } = req.params;
+      const profileData = req.body;
+      
+      // Use provided profile data or defaults
+      const user = profileData.user || { username: 'Unknown', avatar: null };
+      const stats = profileData.stats || { level: 1, xp: 0, totalMessages: 0, voiceTime: 0 };
+      const style = profileData.style || {
+        backgroundColor: '#36393F',
+        accentColor: '#5865F2',
+        progressGradient: ['#5865F2', '#FF73FA']
+      };
+
+      const username = user.username || 'Unknown User';
+      const avatarUrl = user.avatar;
+
+      // Calculate XP progress for current level
+      const BASE_XP_PER_LEVEL = 100;
+      const XP_MULTIPLIER = 1.2;
+      
+      function calculateRequiredXP(level: number) {
+        return Math.floor(BASE_XP_PER_LEVEL * Math.pow(level, XP_MULTIPLIER));
+      }
+      
+      const currentLevelXP = stats.level === 1 ? 0 : calculateRequiredXP(stats.level - 1);
+      const nextLevelXP = calculateRequiredXP(stats.level);
+      const progressXP = stats.xp - currentLevelXP;
+      const neededXP = nextLevelXP - currentLevelXP;
+      const progressPercent = Math.max(0, Math.min(100, (progressXP / neededXP) * 100));
+
+      // Generate SVG profile card
+      const svg = `
+        <svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+          <!-- Background -->
+          <rect width="800" height="400" fill="${style.backgroundColor || '#36393F'}" rx="20"/>
+          
+          <!-- Avatar circle or placeholder -->
+          ${avatarUrl ? `
+            <circle cx="110" cy="110" r="60" fill="#2F3136"/>
+            <image x="50" y="50" width="120" height="120" href="${avatarUrl}" clip-path="circle(60px at 110px 110px)" />
+          ` : `
+            <circle cx="110" cy="110" r="60" fill="${style.accentColor || '#5865F2'}"/>
+            <text x="110" y="120" text-anchor="middle" fill="white" font-size="48" font-weight="bold">?</text>
+          `}
+          
+          <!-- Username -->
+          <text x="200" y="95" fill="#FFFFFF" font-size="36" font-weight="bold">${username}</text>
+          
+          <!-- Level -->
+          <text x="200" y="135" fill="#FFFFFF" font-size="28" font-weight="bold">Level ${stats.level}</text>
+          
+          <!-- Stats boxes -->
+          <rect x="50" y="220" width="180" height="70" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <text x="140" y="245" text-anchor="middle" fill="#FFFFFF" font-size="14">XP</text>
+          <text x="140" y="270" text-anchor="middle" fill="#FFFFFF" font-size="24" font-weight="bold">${stats.xp}</text>
+          
+          <rect x="250" y="220" width="180" height="70" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <text x="340" y="245" text-anchor="middle" fill="#FFFFFF" font-size="14">Messages</text>
+          <text x="340" y="270" text-anchor="middle" fill="#FFFFFF" font-size="24" font-weight="bold">${stats.totalMessages || 0}</text>
+          
+          <rect x="450" y="220" width="180" height="70" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <text x="540" y="245" text-anchor="middle" fill="#FFFFFF" font-size="14">Voice (min)</text>
+          <text x="540" y="270" text-anchor="middle" fill="#FFFFFF" font-size="24" font-weight="bold">${Math.round((stats.voiceTime || 0) / 60)}</text>
+          
+          <!-- Progress bar background -->
+          <rect x="50" y="320" width="700" height="20" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <!-- Progress bar fill -->
+          <rect x="50" y="320" width="${Math.min(700, (progressPercent / 100) * 700)}" height="20" rx="10" fill="${style.accentColor || '#5865F2'}"/>
+          <!-- Progress text -->
+          <text x="400" y="335" text-anchor="middle" fill="#FFFFFF" font-size="12">${progressXP}/${neededXP} XP to next level</text>
+        </svg>
+      `;
+
+      res.set({
+        'Content-Type': 'image/svg+xml',
+        'Content-Length': Buffer.byteLength(svg, 'utf8')
+      });
+      res.send(svg);
+
+    } catch (error) {
+      console.error('Profile card generation error (POST):', error);
+      res.status(500).json({ message: "Failed to generate profile card" });
+    }
+  });
+
+  // Server information API
+  app.get("/api/servers/:serverId", async (req, res) => {
+    try {
+      const { serverId } = req.params;
+      
+      // Get server from database first
+      let server = await storage.getServer(serverId);
+      
+      // If not in database, try to fetch from Discord API
+      if (!server) {
+        try {
+          const response = await fetch(`https://discord.com/api/v10/guilds/${serverId}`, {
+            headers: {
+              'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const discordGuild = await response.json();
+            // Create server in database
+            server = await storage.createServer({
+              id: serverId,
+              name: discordGuild.name,
+              icon: discordGuild.icon ? `https://cdn.discordapp.com/icons/${serverId}/${discordGuild.icon}.png` : null,
+              ownerId: discordGuild.owner_id,
+              settings: {
+                pointsPerLevel: 100,
+                levelUpMessage: "축하합니다! {user}님이 레벨 {level}에 도달했습니다!"
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch guild from Discord:', error);
+        }
+      }
+      
+      if (!server) {
+        return res.status(404).json({ message: "Server not found" });
+      }
+      
+      res.json(server);
+    } catch (error) {
+      console.error('Server info error:', error);
+      res.status(500).json({ message: "Failed to fetch server information" });
+    }
+  });
+
+  // Server statistics API
+  app.get("/api/servers/:serverId/stats", async (req, res) => {
+    try {
+      const { serverId } = req.params;
+      const stats = await storage.getServerStats(serverId);
+      res.json(stats);
+    } catch (error) {
+      console.error('Server stats error:', error);
+      res.status(500).json({ message: "Failed to fetch server statistics" });
+    }
+  });
+
+  // Server leaderboard API
+  app.get("/api/servers/:serverId/leaderboard", async (req, res) => {
+    try {
+      const { serverId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const topUsers = await storage.getTopUsers(serverId, limit);
+      
+      // Fetch user data for each user
+      const enrichedUsers = await Promise.all(
+        topUsers.map(async (userServer) => {
+          const user = await storage.getUser(userServer.userId);
+          return {
+            ...userServer,
+            user
+          };
+        })
+      );
+      
+      res.json(enrichedUsers);
+    } catch (error) {
+      console.error('Leaderboard error:', error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
   app.get("/api/servers/:serverId/activity", async (req, res) => {
     try {
       const days = parseInt(req.query.days as string) || 7;
@@ -717,6 +897,216 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Bot guilds API error:', error);
       res.status(500).json({ message: "Failed to fetch bot guilds" });
+    }
+  });
+
+  // Background upload and management
+  app.post("/api/servers/:serverId/backgrounds", upload.single('image'), async (req, res) => {
+    try {
+      const { serverId } = req.params;
+      const { name, description, price, category, requiredAchievementId } = req.body;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "Image file is required" });
+      }
+
+      // Create background record
+      const backgroundData = {
+        serverId,
+        name,
+        description,
+        imageUrl: `/uploads/${req.file.filename}`,
+        creatorId: req.user?.id || 'unknown',
+        price: parseInt(price) || 0,
+        category,
+        requiredAchievementId: requiredAchievementId ? parseInt(requiredAchievementId) : null
+      };
+
+      const background = await storage.createBackground(backgroundData);
+      res.status(201).json(background);
+    } catch (error) {
+      console.error("Background upload error:", error);
+      res.status(500).json({ message: "Failed to upload background" });
+    }
+  });
+
+  app.get("/api/servers/:serverId/backgrounds", async (req, res) => {
+    try {
+      const backgrounds = await storage.getBackgrounds(req.params.serverId);
+      res.json(backgrounds);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch backgrounds" });
+    }
+  });
+
+  app.patch("/api/backgrounds/:id", async (req, res) => {
+    try {
+      await storage.updateBackground(parseInt(req.params.id), req.body);
+      res.json({ message: "Background updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update background" });
+    }
+  });
+
+  app.delete("/api/backgrounds/:id", async (req, res) => {
+    try {
+      await storage.deleteBackground(parseInt(req.params.id));
+      res.json({ message: "Background deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete background" });
+    }
+  });
+
+  // Achievement management
+  app.post("/api/servers/:serverId/achievements", async (req, res) => {
+    try {
+      const { serverId } = req.params;
+      const achievementData = {
+        ...req.body,
+        serverId,
+        createdAt: new Date()
+      };
+
+      const achievement = await storage.createAchievement(achievementData);
+      res.status(201).json(achievement);
+    } catch (error) {
+      console.error("Achievement creation error:", error);
+      res.status(500).json({ message: "Failed to create achievement" });
+    }
+  });
+
+  app.get("/api/servers/:serverId/achievements", async (req, res) => {
+    try {
+      const achievements = await storage.getAchievements(req.params.serverId);
+      res.json(achievements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch achievements" });
+    }
+  });
+
+  app.patch("/api/achievements/:id", async (req, res) => {
+    try {
+      await storage.updateAchievement(parseInt(req.params.id), req.body);
+      res.json({ message: "Achievement updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update achievement" });
+    }
+  });
+
+  app.delete("/api/achievements/:id", async (req, res) => {
+    try {
+      await storage.deleteAchievement(parseInt(req.params.id));
+      res.json({ message: "Achievement deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete achievement" });
+    }
+  });
+
+  // Individual user statistics
+  app.get("/api/user-stats/:userId/:serverId", async (req, res) => {
+    try {
+      const { userId, serverId } = req.params;
+      
+      // Get user server data
+      const userServer = await storage.getUserServer(userId, serverId);
+      if (!userServer) {
+        return res.status(404).json({ message: "User not found in this server" });
+      }
+
+      // Get user basic info
+      const user = await storage.getUser(userId);
+      
+      // Get user rank
+      const topUsers = await storage.getTopUsers(serverId, 1000);
+      const rank = topUsers.findIndex(u => u.userId === userId) + 1;
+
+      // Get user achievements
+      const userAchievements = await storage.getUserAchievements(userId, serverId);
+
+      // Get user backgrounds
+      const userBackgrounds = await storage.getUserBackgrounds(userId, serverId);
+
+      // Calculate hourly activity from activity logs
+      const activityLogs = await storage.getActivityLogs(serverId, 30);
+      const userActivities = activityLogs.filter(log => log.userId === userId);
+      
+      const hourlyActivity: { [hour: number]: number } = {};
+      for (let i = 0; i < 24; i++) {
+        hourlyActivity[i] = 0;
+      }
+      
+      userActivities.forEach(activity => {
+        const hour = new Date(activity.timestamp).getHours();
+        hourlyActivity[hour]++;
+      });
+
+      // Get channel activity from database
+      const channelActivity: any[] = [];
+      const channelConfigs = await storage.getChannelConfigs(serverId);
+      
+      for (const config of channelConfigs) {
+        const channelLogs = userActivities.filter(log => 
+          log.type === 'message' && log.metadata?.channelId === config.channelId
+        );
+        
+        if (channelLogs.length > 0) {
+          channelActivity.push({
+            channelId: config.channelId,
+            name: config.channelId,
+            messageCount: channelLogs.length
+          });
+        }
+      }
+
+      const stats = {
+        username: user?.username || `User ${userId}`,
+        level: userServer.level,
+        points: userServer.points,
+        rank: rank || topUsers.length + 1,
+        totalMessages: userServer.totalMessages,
+        totalVoiceTime: userServer.totalVoiceTime,
+        achievements: userAchievements,
+        backgrounds: userBackgrounds,
+        hourlyActivity,
+        channelActivity
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("User stats error:", error);
+      res.status(500).json({ message: "Failed to fetch user statistics" });
+    }
+  });
+
+  // Server channels endpoint (for achievement conditions)
+  app.get("/api/servers/:serverId/channels", async (req, res) => {
+    try {
+      const { serverId } = req.params;
+      
+      if (!process.env.DISCORD_BOT_TOKEN) {
+        return res.status(500).json({ message: "Bot token not configured" });
+      }
+
+      // Fetch channels from Discord API
+      const response = await fetch(`https://discord.com/api/v10/guilds/${serverId}/channels`, {
+        headers: {
+          'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch channels:', response.status);
+        return res.json([]); // Return empty array if can't fetch
+      }
+
+      const channels = await response.json();
+      // Filter for text channels only
+      const textChannels = channels.filter((channel: any) => channel.type === 0);
+      res.json(textChannels);
+    } catch (error) {
+      console.error('Channels API error:', error);
+      res.json([]); // Return empty array on error
     }
   });
 
