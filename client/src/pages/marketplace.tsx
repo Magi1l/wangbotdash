@@ -48,7 +48,7 @@ export default function Marketplace() {
     enabled: !!serverId,
   });
 
-  const { data: achievements } = useQuery({
+  const { data: achievements = [] } = useQuery({
     queryKey: [`/api/servers/${serverId}/achievements`],
     enabled: !!serverId,
   });
@@ -97,18 +97,47 @@ export default function Marketplace() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "파일 오류",
+          description: "이미지 파일만 업로드할 수 있습니다.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "파일 크기 오류",
+          description: "파일 크기는 5MB 이하여야 합니다.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setSelectedFile(file);
       
       // Create preview for cropping
       const reader = new FileReader();
       reader.onload = (e) => {
-        setCropPreview(e.target?.result as string);
+        if (e.target?.result) {
+          setCropPreview(e.target.result as string);
+        }
+      };
+      reader.onerror = () => {
+        toast({
+          title: "파일 읽기 오류",
+          description: "이미지 파일을 읽을 수 없습니다.",
+          variant: "destructive"
+        });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleUploadSubmit = () => {
+  const handleUploadSubmit = async () => {
     if (!selectedFile || !uploadForm.name.trim()) {
       toast({
         title: "입력 오류",
@@ -118,17 +147,21 @@ export default function Marketplace() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('image', selectedFile);
-    formData.append('name', uploadForm.name);
-    formData.append('description', uploadForm.description);
-    formData.append('price', uploadForm.price.toString());
-    formData.append('category', uploadForm.category);
-    if (uploadForm.requiredAchievementId) {
-      formData.append('requiredAchievementId', uploadForm.requiredAchievementId.toString());
-    }
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      formData.append('name', uploadForm.name);
+      formData.append('description', uploadForm.description);
+      formData.append('price', uploadForm.price.toString());
+      formData.append('category', uploadForm.category);
+      if (uploadForm.requiredAchievementId) {
+        formData.append('requiredAchievementId', uploadForm.requiredAchievementId.toString());
+      }
 
-    uploadMutation.mutate(formData);
+      await uploadMutation.mutateAsync(formData);
+    } catch (error) {
+      console.error('Upload error:', error);
+    }
   };
 
   const handlePreview = (background: any) => {

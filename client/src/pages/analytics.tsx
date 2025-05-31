@@ -46,41 +46,36 @@ export default function Analytics() {
   const quickStats = [
     {
       title: "총 등록 유저",
-      value: 1542,
+      value: serverStats?.totalUsers || 0,
       icon: Users,
       color: "text-blue-500",
       bgColor: "bg-blue-500/20",
     },
     {
-      title: "평균 레벨",
-      value: "23.7",
-      icon: TrendingUp,
+      title: "총 메시지",
+      value: serverStats?.totalMessages || 0,
+      icon: MessageSquare,
       color: "text-green-500",
       bgColor: "bg-green-500/20",
     },
     {
-      title: "달성된 업적",
-      value: 8429,
-      icon: Trophy,
+      title: "음성 시간 (분)",
+      value: serverStats?.totalVoiceTime || 0,
+      icon: Mic,
       color: "text-pink-500",
       bgColor: "bg-pink-500/20",
     },
     {
-      title: "총 포인트 순환",
-      value: 245680,
-      icon: Coins,
-      color: "text-yellow-500",
-      bgColor: "bg-yellow-500/20",
+      title: "레벨업 횟수",
+      value: serverStats?.levelUps || 0,
+      icon: TrendingUp,
+      color: "text-orange-500",
+      bgColor: "bg-orange-500/20",
     },
   ];
 
-  // Mock channel statistics
-  const mockChannelStats = [
-    { channelId: "general", name: "일반", totalMessages: 12456, activeUsers: 234, avgXp: 1890, growth: "+15%" },
-    { channelId: "dev", name: "개발", totalMessages: 8732, activeUsers: 156, avgXp: 2340, growth: "+8%" },
-    { channelId: "random", name: "잡담", totalMessages: 6543, activeUsers: 189, avgXp: 1456, growth: "+12%" },
-    { channelId: "help", name: "도움", totalMessages: 3421, activeUsers: 98, avgXp: 980, growth: "+5%" },
-  ];
+  // Use actual channel statistics
+  const channelStatsData = channelStats || [];
 
   return (
     <div className="animate-fade-in">
@@ -318,18 +313,24 @@ export default function Analytics() {
                         로딩 중...
                       </td>
                     </tr>
-                  ) : (
-                    mockChannelStats.map((stat) => (
-                      <tr key={stat.channelId} className="border-b border-border">
-                        <td className="p-4 text-foreground font-medium"># {stat.name}</td>
-                        <td className="p-4 text-muted-foreground">{stat.totalMessages.toLocaleString()}</td>
-                        <td className="p-4 text-muted-foreground">{stat.activeUsers}</td>
-                        <td className="p-4 text-muted-foreground">{stat.avgXp.toLocaleString()}</td>
+                  ) : channelStatsData.length > 0 ? (
+                    channelStatsData.map((stat: any) => (
+                      <tr key={stat.channelId || stat.id} className="border-b border-border">
+                        <td className="p-4 text-foreground font-medium"># {stat.name || stat.channelName}</td>
+                        <td className="p-4 text-muted-foreground">{(stat.totalMessages || 0).toLocaleString()}</td>
+                        <td className="p-4 text-muted-foreground">{stat.activeUsers || 0}</td>
+                        <td className="p-4 text-muted-foreground">{(stat.avgXp || 0).toLocaleString()}</td>
                         <td className="p-4">
-                          <span className="text-green-500 text-sm">{stat.growth}</span>
+                          <span className="text-green-500 text-sm">{stat.growth || "N/A"}</span>
                         </td>
                       </tr>
                     ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-muted-foreground text-center">
+                        채널 통계 데이터가 없습니다
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>

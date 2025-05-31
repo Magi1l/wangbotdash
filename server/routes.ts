@@ -6,6 +6,114 @@ import { requireAuth, requireServerAdmin, requireServerAccess } from "./auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { createCanvas, loadImage } from "canvas";
+
+// Profile card generation function
+async function generateProfileCard(profileData: any) {
+  const canvas = createCanvas(800, 300);
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  const bgColor = profileData.style?.backgroundColor || '#36393F';
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Rounded rectangle function
+  const roundRect = (x: number, y: number, width: number, height: number, radius: number) => {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  };
+
+  // Profile card background with border
+  const accentColor = profileData.style?.accentColor || '#5865F2';
+  ctx.strokeStyle = accentColor;
+  ctx.lineWidth = 3;
+  roundRect(20, 20, canvas.width - 40, canvas.height - 40);
+  ctx.stroke();
+
+  // User info section
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 32px Arial';
+  ctx.fillText(profileData.user.username || 'User', 180, 80);
+
+  // Level and rank
+  ctx.font = 'bold 24px Arial';
+  ctx.fillStyle = accentColor;
+  ctx.fillText(`Level ${profileData.stats.level}`, 180, 120);
+
+  ctx.font = '18px Arial';
+  ctx.fillStyle = '#B9BBBE';
+  ctx.fillText(`Rank #${profileData.stats.rank}`, 180, 145);
+
+  // Stats section
+  ctx.font = '16px Arial';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(`Messages: ${profileData.stats.totalMessages || 0}`, 180, 180);
+  ctx.fillText(`Voice Time: ${profileData.stats.voiceTime || 0}h`, 180, 200);
+  ctx.fillText(`Points: ${profileData.stats.points || 0}P`, 180, 220);
+
+  // XP Progress bar
+  if (profileData.stats.maxXp > 0) {
+    const progress = Math.max(0, Math.min(1, profileData.stats.xp / profileData.stats.maxXp));
+    const barWidth = 250;
+    const barHeight = 20;
+    const barX = 450;
+    const barY = 180;
+
+    // Progress bar background
+    ctx.fillStyle = '#2F3136';
+    roundRect(barX, barY, barWidth, barHeight);
+    ctx.fill();
+
+    // Progress bar fill
+    if (progress > 0) {
+      ctx.fillStyle = accentColor;
+      roundRect(barX, barY, barWidth * progress, barHeight);
+      ctx.fill();
+    }
+
+    // Progress text
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${profileData.stats.xp}/${profileData.stats.maxXp} XP`, barX + barWidth/2, barY + 14);
+    ctx.textAlign = 'left';
+  }
+
+  // Avatar placeholder (circle)
+  const avatarSize = 120;
+  const avatarX = 40;
+  const avatarY = 90;
+
+  ctx.beginPath();
+  ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+  ctx.fillStyle = accentColor;
+  ctx.fill();
+
+  // Avatar border
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // Avatar text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 48px Arial';
+  ctx.textAlign = 'center';
+  const initial = (profileData.user.username || 'U').charAt(0).toUpperCase();
+  ctx.fillText(initial, avatarX + avatarSize/2, avatarY + avatarSize/2 + 16);
+  ctx.textAlign = 'left';
+
+  return canvas;
+}
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -1078,16 +1186,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Server channels endpoint (for achievement conditions)
-  app.get("/api/servers/:serverId/channels", async (req, res) => {
+  // Profile card generation API for bot
+  app.get("/api/profile-card/:userId/:serverId", async (req, res) => {
+    try {
+      const { userId, serverId } = req.params;
+      
+      const userServer = await storage.getUserServer(userId, serverId);
+      if (!userServer) {
+        return res.status(404).json({ message: "User not found in this server" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get user rank
+      const topUsers = await storage.getTopUsers(serverId, 1000);
+      const rank = topUsers.findIndex(u => u.userId === userId) + 1;
+
+      // Calculate level progress
+      const currentLevelXP = Math.pow(userServer.level, 2) * 100;
+      const nextLevelXP = Math.pow(userServer.level + 1, 2) * 100;
+      const progressXP = userServer.xp - currentLevelXP;
+      const neededXP = nextLevelXP - currentLevelXP;
+
+      const profileData = {
+        user: {
+          username: user.username,
+          id: userId
+        },
+        stats: {
+          level: userServer.level,
+          xp: progressXP,
+          maxXp: neededXP,
+          totalXp: userServer.xp,
+          points: userServer.points,
+          rank: rank,
+          totalMessages: userServer.totalMessages,
+          voiceTime: Math.floor(userServer.totalVoiceTime / 60)
+        },
+        style: {
+          backgroundColor: '#36393F',
+          accentColor: '#5865F2',
+          textColor: '#FFFFFF'
+        }
+      };
+
+      // Generate profile card image
+      const canvas = await generateProfileCard(profileData);
+      const buffer = canvas.toBuffer('image/png');
+
+      res.setHeader('Content-Type', 'image/png');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Profile card error:', error);
+      res.status(500).json({ message: "Failed to generate profile card" });
+    }
+  });
+
+  app.post("/api/profile-card/:userId/:serverId", async (req, res) => {
+    try {
+      const profileData = req.body;
+      
+      // Generate profile card with provided data
+      const canvas = await generateProfileCard(profileData);
+      const buffer = canvas.toBuffer('image/png');
+
+      res.setHeader('Content-Type', 'image/png');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Profile card generation error:', error);
+      res.status(500).json({ message: "Failed to generate profile card" });
+    }
+  });
+
+  // Public channel listing endpoint - no auth required
+  app.get("/api/public/servers/:serverId/channels", async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
     try {
       const { serverId } = req.params;
       
       if (!process.env.DISCORD_BOT_TOKEN) {
-        return res.status(500).json({ message: "Bot token not configured" });
+        console.error('Discord bot token not configured');
+        return res.json([]);
       }
 
-      // Fetch channels from Discord API
       const response = await fetch(`https://discord.com/api/v10/guilds/${serverId}/channels`, {
         headers: {
           'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
@@ -1096,17 +1281,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (!response.ok) {
-        console.error('Failed to fetch channels:', response.status);
-        return res.json([]); // Return empty array if can't fetch
+        console.error('Failed to fetch channels:', response.status, response.statusText);
+        return res.json([]);
       }
 
       const channels = await response.json();
-      // Filter for text channels only
+      console.log('Fetched channels:', channels.length);
       const textChannels = channels.filter((channel: any) => channel.type === 0);
       res.json(textChannels);
     } catch (error) {
       console.error('Channels API error:', error);
-      res.json([]); // Return empty array on error
+      res.json([]);
+    }
+  });
+
+  // Server channels endpoint (for achievement conditions) - with auth
+  app.get("/api/servers/:serverId/channels", async (req, res) => {
+    try {
+      const { serverId } = req.params;
+      
+      if (!process.env.DISCORD_BOT_TOKEN) {
+        return res.json([]);
+      }
+
+      const response = await fetch(`https://discord.com/api/v10/guilds/${serverId}/channels`, {
+        headers: {
+          'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        return res.json([]);
+      }
+
+      const channels = await response.json();
+      const textChannels = channels.filter((channel: any) => channel.type === 0);
+      res.json(textChannels);
+    } catch (error) {
+      res.json([]);
+    }
+  });
+
+  // Channel configurations endpoint
+  app.get("/api/servers/:serverId/channel-configs", async (req, res) => {
+    try {
+      const configs = await storage.getChannelConfigs(req.params.serverId);
+      res.json(configs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch channel configs" });
     }
   });
 

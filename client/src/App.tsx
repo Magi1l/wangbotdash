@@ -24,6 +24,10 @@ function Router() {
       <Route path="/dashboard/:serverId?" component={DashboardLayout} />
       <Route path="/profile/:serverId" component={DashboardLayout} />
       <Route path="/profile-editor" component={DashboardLayout} />
+      <Route path="/server/:serverId/settings" component={DashboardLayout} />
+      <Route path="/server/:serverId/marketplace" component={DashboardLayout} />
+      <Route path="/server/:serverId/achievements" component={DashboardLayout} />
+      <Route path="/server/:serverId/analytics" component={DashboardLayout} />
       <Route path="/settings/:serverId" component={DashboardLayout} />
       <Route path="/marketplace/:serverId" component={DashboardLayout} />
       <Route path="/achievements/:serverId" component={DashboardLayout} />
@@ -52,13 +56,13 @@ function DashboardLayout() {
       return <Dashboard />;
     } else if (location.startsWith('/profile-editor') || location.startsWith('/profile')) {
       return <ProfileEditor />;
-    } else if (location.startsWith('/settings')) {
+    } else if (location.includes('/settings')) {
       return <ServerSettings />;
-    } else if (location.startsWith('/marketplace')) {
+    } else if (location.includes('/marketplace')) {
       return <Marketplace />;
-    } else if (location.startsWith('/achievements')) {
+    } else if (location.includes('/achievements')) {
       return <Achievements />;
-    } else if (location.startsWith('/analytics')) {
+    } else if (location.includes('/analytics')) {
       return <Analytics />;
     } else if (location === '/' || location === '/servers') {
       return <ServersPage />;

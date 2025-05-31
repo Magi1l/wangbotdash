@@ -14,7 +14,7 @@ export async function connectDatabase() {
 
     client = new MongoClient(process.env.MONGODB_URI);
     await client.connect();
-    db = client.db();
+    db = client.db('levelbot');
     console.log('✅ Database connected successfully');
   } catch (error) {
     console.error('❌ Database connection failed:', error);

@@ -35,8 +35,8 @@ export default {
       const progressXP = userData.xp - currentLevelXP;
       const neededXP = nextLevelXP - currentLevelXP;
 
-      // Get user's achievements (latest 3)
-      const achievements = await getUserAchievements(targetUser.id, guild.id, 3);
+      // Get user's actual rank
+      const userRank = await getUserRank(targetUser.id, guild.id);
 
       // Prepare profile data
       const profileData = {
@@ -52,41 +52,64 @@ export default {
           maxXp: neededXP,
           totalXp: userData.xp,
           points: userData.points,
-          rank: await getUserRank(targetUser.id, guild.id),
+          rank: userRank,
           totalMessages: userData.totalMessages,
           voiceTime: Math.floor(userData.totalVoiceTime / 60) // Convert to hours
         },
-        style: userData.profileCard || {
+        style: {
+          backgroundColor: '#36393F',
           accentColor: '#5865F2',
-          progressGradient: ['#5865F2', '#FF73FA'],
-          backgroundColor: undefined,
-          backgroundImage: undefined
-        },
-        achievements: achievements.map(achievement => ({
-          name: achievement.name,
-          icon: achievement.icon,
-          rarity: achievement.type
-        }))
+          progressGradient: ['#5865F2', '#FF73FA']
+        }
       };
 
-      // Get profile card from dashboard API
-      const dashboardUrl = 'https://wangbotdash.up.railway.app'; // 대시보드 URL
+      // Try to get profile card from dashboard API, fallback to default settings
+      const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:5000'; // 대시보드 URL
       const profileCardUrl = `${dashboardUrl}/api/profile-card/${targetUser.id}/${guild.id}`;
       
       let cardBuffer;
+      let useDefaultSettings = false;
+      
       try {
         const response = await fetch(profileCardUrl);
         if (response.ok) {
           cardBuffer = await response.buffer();
         } else {
-          throw new Error('Failed to fetch profile card');
+          useDefaultSettings = true;
         }
       } catch (error) {
         console.error('Error fetching profile card from dashboard:', error);
-        // Dashboard API failed, but still show user this is expected for new users
-        return await interaction.editReply({
-          content: '프로필 카드를 생성했습니다. 더 많은 커스터마이징 옵션을 원하시면 대시보드에서 설정해보세요!',
-        });
+        useDefaultSettings = true;
+      }
+      
+      // If dashboard API failed, use default settings to generate profile card
+      if (useDefaultSettings) {
+        console.log('Using default profile settings for user:', targetUser.id);
+        // Set default profile card settings
+        profileData.style = {
+          backgroundColor: '#36393F',
+          accentColor: '#5865F2',
+          progressGradient: ['#5865F2', '#FF73FA']
+        };
+        
+        try {
+          const defaultResponse = await fetch(profileCardUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(profileData)
+          });
+          
+          if (defaultResponse.ok) {
+            cardBuffer = await defaultResponse.buffer();
+          } else {
+            throw new Error('Failed to generate default profile card');
+          }
+        } catch (defaultError) {
+          console.error('Error generating default profile card:', defaultError);
+          return await interaction.editReply({
+            content: '프로필 카드 생성에 실패했습니다. 잠시 후 다시 시도해주세요.',
+          });
+        }
       }
 
       const attachment = new AttachmentBuilder(cardBuffer, { name: 'profile.png' });
@@ -119,9 +142,25 @@ async function getUserAchievements(userId, guildId, limit = 3) {
 
 async function getUserRank(userId, guildId) {
   try {
-    // This would calculate user's rank in the server
-    // For now, return a placeholder - will be implemented with database integration
-    return 1;
+    const { MongoClient } = await import('mongodb');
+    const client = new MongoClient(process.env.MONGODB_URI);
+    await client.connect();
+    
+    const db = client.db('wangbot');
+    const userServersCollection = db.collection('userServers');
+    
+    // Get all users for this server, sorted by XP descending
+    const users = await userServersCollection
+      .find({ serverId: guildId })
+      .sort({ xp: -1 })
+      .toArray();
+    
+    // Find the user's position in the sorted list
+    const userIndex = users.findIndex(user => user.userId === userId);
+    const rank = userIndex >= 0 ? userIndex + 1 : 0;
+    
+    await client.close();
+    return rank;
   } catch (error) {
     console.error('Error calculating user rank:', error);
     return 0;

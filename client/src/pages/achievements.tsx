@@ -62,12 +62,12 @@ export default function Achievements() {
     enabled: !!serverId,
   });
 
-  const { data: channels } = useQuery({
-    queryKey: [`/api/servers/${serverId}/channels`],
+  const { data: channels = [] } = useQuery({
+    queryKey: [`/api/public/servers/${serverId}/channels`],
     enabled: !!serverId,
   });
 
-  const { data: backgrounds } = useQuery({
+  const { data: backgrounds = [] } = useQuery({
     queryKey: [`/api/servers/${serverId}/backgrounds`],
     enabled: !!serverId,
   });
@@ -244,44 +244,11 @@ export default function Achievements() {
     return null;
   };
 
-  // Mock data for demonstration
-  const mockAchievements = [
-    {
-      id: 1,
-      name: "채팅의 왕",
-      description: "1,000개의 메시지를 보내세요",
-      type: "activity",
-      isHidden: false,
-      rewards: { points: 500 },
-      achievementRate: 45,
-    },
-    {
-      id: 2,
-      name: "신비로운 발견",
-      description: "특별한 조건을 만족하세요 (히든)",
-      type: "hidden",
-      isHidden: true,
-      rewards: { backgroundId: 1 },
-      achievementRate: 0.1,
-    },
-    {
-      id: 3,
-      name: "연말 이벤트 참여자",
-      description: "12월 중 특별 활동에 참여하세요",
-      type: "event",
-      isHidden: false,
-      eventEndDate: "2024-12-31",
-      rewards: { points: 1000, backgroundId: 2 },
-      achievementRate: 12,
-      daysLeft: 7,
-    },
-  ];
-
-  const filteredAchievements = mockAchievements.filter(achievement => {
+  const filteredAchievements = achievements?.filter((achievement: any) => {
     if (activeCategory === "all") return true;
     if (activeCategory === "hidden") return achievement.isHidden;
     return achievement.type === activeCategory;
-  });
+  }) || [];
 
   return (
     <div className="animate-fade-in">
@@ -584,15 +551,12 @@ export default function Achievements() {
                         <p className="text-muted-foreground">{achievement.description}</p>
                         <div className="flex items-center space-x-4 mt-2">
                           <span className="text-green-500 text-sm">
-                            보상: {achievement.rewards.points ? `${achievement.rewards.points} 포인트` : ''}
-                            {achievement.rewards.backgroundId ? ' + 배경' : ''}
+                            보상: {achievement.pointReward ? `${achievement.pointReward} 포인트` : ''}
+                            {achievement.backgroundReward ? ' + 배경' : ''}
                           </span>
-                          <span className="text-muted-foreground text-sm">
-                            달성률: {achievement.achievementRate}%
-                          </span>
-                          {achievement.daysLeft && (
+                          {achievement.eventEndDate && (
                             <span className="text-yellow-500 text-sm">
-                              마감: {achievement.daysLeft}일 남음
+                              이벤트 종료: {achievement.eventEndDate}
                             </span>
                           )}
                         </div>

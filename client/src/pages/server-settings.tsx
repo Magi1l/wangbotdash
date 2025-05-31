@@ -25,14 +25,36 @@ export default function ServerSettings() {
   
   console.log('ServerSettings - Extracted serverId:', serverId);
 
-  const { data: channelConfigs, isLoading: channelsLoading } = useQuery({
-    queryKey: [`/api/servers/${serverId}/channels`],
+  const { data: channels, isLoading: channelsLoading } = useQuery({
+    queryKey: [`/api/public/servers/${serverId}/channels`],
+    enabled: !!serverId,
+  });
+
+  const { data: channelConfigs, isLoading: configsLoading } = useQuery({
+    queryKey: [`/api/servers/${serverId}/channel-configs`],
     enabled: !!serverId,
   });
 
   const { data: serverData } = useQuery({
     queryKey: [`/api/servers/${serverId}`],
     enabled: !!serverId,
+  });
+
+  const updateChannelConfigMutation = useMutation({
+    mutationFn: async ({ channelId, config }: { channelId: string; config: any }) => {
+      return apiRequest("POST", `/api/servers/${serverId}/channel-configs`, {
+        channelId,
+        serverId,
+        ...config
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/servers/${serverId}/channel-configs`] });
+      toast({
+        title: "설정 저장 완료!",
+        description: "채널 설정이 성공적으로 업데이트되었습니다.",
+      });
+    },
   });
 
   const updateSettingsMutation = useMutation({
@@ -48,6 +70,10 @@ export default function ServerSettings() {
     },
   });
 
+  const handleChannelConfigUpdate = (channelId: string, config: any) => {
+    updateChannelConfigMutation.mutate({ channelId, config });
+  };
+
   const handleSaveSettings = async () => {
     setIsSaving(true);
     
@@ -61,16 +87,16 @@ export default function ServerSettings() {
     setIsSaving(false);
   };
 
-  // Mock channel data
-  const mockChannels = [
-    { id: "1", name: "일반", type: "text", messageXp: 15, cooldown: 60 },
-    { id: "2", name: "개발", type: "text", messageXp: 20, cooldown: 45 },
-    { id: "3", name: "음성채팅", type: "voice", voiceXpPerMinute: 5, minUsersForVoice: 2 },
-  ];
+  // Get channel config for a specific channel
+  const getChannelConfig = (channelId: string) => {
+    if (!channelConfigs) return { messageXp: 15, cooldown: 60, voiceXpPerMinute: 5, minUsersForVoice: 2 };
+    const config = channelConfigs.find((c: any) => c.channelId === channelId);
+    return config || { messageXp: 15, cooldown: 60, voiceXpPerMinute: 5, minUsersForVoice: 2 };
+  };
 
-  const mockVoiceChannels = [
-    { id: "4", name: "일반 음성", xpPerMinute: 5, minUsers: 2 },
-  ];
+  // Filter channels by type
+  const textChannels = channels?.filter((ch: any) => ch.type === 0 || ch.type === "GUILD_TEXT") || [];
+  const voiceChannels = channels?.filter((ch: any) => ch.type === 2 || ch.type === "GUILD_VOICE") || [];
 
   return (
     <div className="animate-fade-in">
@@ -90,39 +116,52 @@ export default function ServerSettings() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {channelsLoading ? (
+              {channelsLoading || configsLoading ? (
                 <div className="text-muted-foreground">로딩 중...</div>
+              ) : textChannels.length > 0 ? (
+                textChannels.map((channel: any) => {
+                  const config = getChannelConfig(channel.id);
+                  return (
+                    <div key={channel.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Hash className="text-muted-foreground" />
+                        <span className="text-foreground font-medium">{channel.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <Label className="text-sm">메시지 XP:</Label>
+                          <Input
+                            type="number"
+                            defaultValue={config.messageXp}
+                            className="w-16"
+                            onChange={(e) => {
+                              const newConfig = { ...config, messageXp: parseInt(e.target.value) || 15 };
+                              handleChannelConfigUpdate(channel.id, newConfig);
+                            }}
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Label className="text-sm">쿨다운:</Label>
+                          <Input
+                            type="number"
+                            defaultValue={config.cooldown}
+                            className="w-16"
+                            onChange={(e) => {
+                              const newConfig = { ...config, cooldown: parseInt(e.target.value) || 60 };
+                              handleChannelConfigUpdate(channel.id, newConfig);
+                            }}
+                          />
+                          <span className="text-muted-foreground text-sm">초</span>
+                        </div>
+                        <Button size="sm" variant="ghost">
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
-                mockChannels.filter(ch => ch.type === "text").map((channel) => (
-                  <div key={channel.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Hash className="text-muted-foreground" />
-                      <span className="text-foreground font-medium">{channel.name}</span>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <Label className="text-sm">메시지 XP:</Label>
-                        <Input
-                          type="number"
-                          defaultValue={channel.messageXp}
-                          className="w-16"
-                        />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Label className="text-sm">쿨다운:</Label>
-                        <Input
-                          type="number"
-                          defaultValue={channel.cooldown}
-                          className="w-16"
-                        />
-                        <span className="text-muted-foreground text-sm">초</span>
-                      </div>
-                      <Button size="sm" variant="ghost">
-                        <Settings className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
+                <div className="text-muted-foreground">텍스트 채널이 없습니다.</div>
               )}
             </div>
           </CardContent>
@@ -138,32 +177,49 @@ export default function ServerSettings() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockVoiceChannels.map((channel) => (
-                <div key={channel.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Volume2 className="text-muted-foreground" />
-                    <span className="text-foreground font-medium">{channel.name}</span>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <Label className="text-sm">분당 XP:</Label>
-                      <Input
-                        type="number"
-                        defaultValue={channel.xpPerMinute}
-                        className="w-16"
-                      />
+              {channelsLoading || configsLoading ? (
+                <div className="text-muted-foreground">로딩 중...</div>
+              ) : voiceChannels.length > 0 ? (
+                voiceChannels.map((channel: any) => {
+                  const config = getChannelConfig(channel.id);
+                  return (
+                    <div key={channel.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Volume2 className="text-muted-foreground" />
+                        <span className="text-foreground font-medium">{channel.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <Label className="text-sm">분당 XP:</Label>
+                          <Input
+                            type="number"
+                            defaultValue={config.voiceXpPerMinute}
+                            className="w-16"
+                            onChange={(e) => {
+                              const newConfig = { ...config, voiceXpPerMinute: parseInt(e.target.value) || 5 };
+                              handleChannelConfigUpdate(channel.id, newConfig);
+                            }}
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Label className="text-sm">최소 인원:</Label>
+                          <Input
+                            type="number"
+                            defaultValue={config.minUsersForVoice}
+                            className="w-16"
+                            onChange={(e) => {
+                              const newConfig = { ...config, minUsersForVoice: parseInt(e.target.value) || 2 };
+                              handleChannelConfigUpdate(channel.id, newConfig);
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Label className="text-sm">최소 인원:</Label>
-                      <Input
-                        type="number"
-                        defaultValue={channel.minUsers}
-                        className="w-16"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              ) : (
+                <div className="text-muted-foreground">음성 채널이 없습니다.</div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -177,14 +233,16 @@ export default function ServerSettings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label className="text-sm mb-2">레벨업 공지 채널</Label>
-                <Select defaultValue="general">
+                <Select defaultValue={textChannels[0]?.id || ""}>
                   <SelectTrigger>
                     <SelectValue placeholder="채널 선택..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="general">일반</SelectItem>
-                    <SelectItem value="announcements">공지사항</SelectItem>
-                    <SelectItem value="level-ups">레벨업</SelectItem>
+                    {textChannels.map((channel: any) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        {channel.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
