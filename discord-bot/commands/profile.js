@@ -38,6 +38,9 @@ export default {
       // Get user's actual rank
       const userRank = await getUserRank(targetUser.id, guild.id);
 
+      // Calculate progress percentage
+      const progress = neededXP > 0 ? progressXP / neededXP : 0;
+
       // Prepare profile data
       const profileData = {
         user: {
@@ -63,59 +66,46 @@ export default {
         }
       };
 
-      // Try to get profile card from dashboard API, fallback to default settings
-      const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:5000'; // 대시보드 URL
-      const profileCardUrl = `${dashboardUrl}/api/profile-card/${targetUser.id}/${guild.id}`;
-      
-      let cardBuffer;
-      let useDefaultSettings = false;
-      
-      try {
-        const response = await fetch(profileCardUrl);
-        if (response.ok) {
-          cardBuffer = await response.buffer();
-        } else {
-          useDefaultSettings = true;
-        }
-      } catch (error) {
-        console.error('Error fetching profile card from dashboard:', error);
-        useDefaultSettings = true;
-      }
-      
-      // If dashboard API failed, use default settings to generate profile card
-      if (useDefaultSettings) {
-        console.log('Using default profile settings for user:', targetUser.id);
-        // Set default profile card settings
-        profileData.style = {
-          backgroundColor: '#36393F',
-          accentColor: '#5865F2',
-          progressGradient: ['#5865F2', '#FF73FA']
-        };
-        
-        try {
-          const defaultResponse = await fetch(profileCardUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(profileData)
-          });
-          
-          if (defaultResponse.ok) {
-            cardBuffer = await defaultResponse.buffer();
-          } else {
-            throw new Error('Failed to generate default profile card');
+      // Create Discord embed instead of image
+      const embed = {
+        title: `🎮 ${profileData.user.username}님의 프로필`,
+        color: parseInt(profileData.style.accentColor.replace('#', ''), 16),
+        thumbnail: {
+          url: targetUser.displayAvatarURL({ extension: 'png', size: 256 })
+        },
+        fields: [
+          {
+            name: '📊 레벨 정보',
+            value: `레벨: **${profileData.stats.level}**\n경험치: **${progressXP}/${neededXP}** XP\n총 경험치: **${profileData.stats.totalXp}** XP`,
+            inline: true
+          },
+          {
+            name: '🏆 순위 & 포인트',
+            value: `순위: **#${userRank}**\n포인트: **${profileData.stats.points}**P`,
+            inline: true
+          },
+          {
+            name: '📈 활동 통계',
+            value: `메시지: **${profileData.stats.totalMessages}**개\n음성채팅: **${profileData.stats.voiceTime}**시간`,
+            inline: true
           }
-        } catch (defaultError) {
-          console.error('Error generating default profile card:', defaultError);
-          return await interaction.editReply({
-            content: '프로필 카드 생성에 실패했습니다. 잠시 후 다시 시도해주세요.',
-          });
+        ],
+        footer: {
+          text: `${guild.name} • ${new Date().toLocaleDateString('ko-KR')}`,
+          icon_url: guild.iconURL()
         }
-      }
+      };
 
-      const attachment = new AttachmentBuilder(cardBuffer, { name: 'profile.png' });
+      // Add progress bar as field
+      const progressBar = '▓'.repeat(Math.floor(progress * 20)) + '░'.repeat(20 - Math.floor(progress * 20));
+      embed.fields.push({
+        name: '📊 레벨 진행도',
+        value: `\`${progressBar}\` ${Math.round(progress * 100)}%`,
+        inline: false
+      });
 
       await interaction.editReply({
-        files: [attachment]
+        embeds: [embed]
       });
 
     } catch (error) {

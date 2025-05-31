@@ -6,113 +6,56 @@ import { requireAuth, requireServerAdmin, requireServerAccess } from "./auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { createCanvas, loadImage } from "canvas";
-
-// Profile card generation function
-async function generateProfileCard(profileData: any) {
-  const canvas = createCanvas(800, 300);
-  const ctx = canvas.getContext('2d');
-
-  // Background
+// Profile card generation function using SVG
+function generateProfileCardSVG(profileData: any): string {
   const bgColor = profileData.style?.backgroundColor || '#36393F';
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Rounded rectangle function
-  const roundRect = (x: number, y: number, width: number, height: number, radius: number) => {
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-  };
-
-  // Profile card background with border
   const accentColor = profileData.style?.accentColor || '#5865F2';
-  ctx.strokeStyle = accentColor;
-  ctx.lineWidth = 3;
-  roundRect(20, 20, canvas.width - 40, canvas.height - 40);
-  ctx.stroke();
-
-  // User info section
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 32px Arial';
-  ctx.fillText(profileData.user.username || 'User', 180, 80);
-
-  // Level and rank
-  ctx.font = 'bold 24px Arial';
-  ctx.fillStyle = accentColor;
-  ctx.fillText(`Level ${profileData.stats.level}`, 180, 120);
-
-  ctx.font = '18px Arial';
-  ctx.fillStyle = '#B9BBBE';
-  ctx.fillText(`Rank #${profileData.stats.rank}`, 180, 145);
-
-  // Stats section
-  ctx.font = '16px Arial';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(`Messages: ${profileData.stats.totalMessages || 0}`, 180, 180);
-  ctx.fillText(`Voice Time: ${profileData.stats.voiceTime || 0}h`, 180, 200);
-  ctx.fillText(`Points: ${profileData.stats.points || 0}P`, 180, 220);
-
-  // XP Progress bar
-  if (profileData.stats.maxXp > 0) {
-    const progress = Math.max(0, Math.min(1, profileData.stats.xp / profileData.stats.maxXp));
-    const barWidth = 250;
-    const barHeight = 20;
-    const barX = 450;
-    const barY = 180;
-
-    // Progress bar background
-    ctx.fillStyle = '#2F3136';
-    roundRect(barX, barY, barWidth, barHeight);
-    ctx.fill();
-
-    // Progress bar fill
-    if (progress > 0) {
-      ctx.fillStyle = accentColor;
-      roundRect(barX, barY, barWidth * progress, barHeight);
-      ctx.fill();
-    }
-
-    // Progress text
-    ctx.font = '14px Arial';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.fillText(`${profileData.stats.xp}/${profileData.stats.maxXp} XP`, barX + barWidth/2, barY + 14);
-    ctx.textAlign = 'left';
-  }
-
-  // Avatar placeholder (circle)
-  const avatarSize = 120;
-  const avatarX = 40;
-  const avatarY = 90;
-
-  ctx.beginPath();
-  ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
-  ctx.fillStyle = accentColor;
-  ctx.fill();
-
-  // Avatar border
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 4;
-  ctx.stroke();
-
-  // Avatar text
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 48px Arial';
-  ctx.textAlign = 'center';
+  const textColor = profileData.style?.textColor || '#FFFFFF';
+  
+  const progress = profileData.stats.maxXp > 0 ? 
+    Math.max(0, Math.min(1, profileData.stats.xp / profileData.stats.maxXp)) : 0;
+  const progressWidth = progress * 250;
+  
   const initial = (profileData.user.username || 'U').charAt(0).toUpperCase();
-  ctx.fillText(initial, avatarX + avatarSize/2, avatarY + avatarSize/2 + 16);
-  ctx.textAlign = 'left';
 
-  return canvas;
+  return `
+    <svg width="800" height="300" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background -->
+      <rect width="800" height="300" fill="${bgColor}"/>
+      
+      <!-- Border -->
+      <rect x="20" y="20" width="760" height="260" fill="none" stroke="${accentColor}" stroke-width="3" rx="15"/>
+      
+      <!-- Avatar Circle -->
+      <circle cx="100" cy="150" r="60" fill="${accentColor}" stroke="#FFFFFF" stroke-width="4"/>
+      
+      <!-- Avatar Initial -->
+      <text x="100" y="165" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="48" font-weight="bold">${initial}</text>
+      
+      <!-- Username -->
+      <text x="180" y="80" fill="${textColor}" font-family="Arial, sans-serif" font-size="32" font-weight="bold">${profileData.user.username || 'User'}</text>
+      
+      <!-- Level -->
+      <text x="180" y="120" fill="${accentColor}" font-family="Arial, sans-serif" font-size="24" font-weight="bold">Level ${profileData.stats.level}</text>
+      
+      <!-- Rank -->
+      <text x="180" y="145" fill="#B9BBBE" font-family="Arial, sans-serif" font-size="18">Rank #${profileData.stats.rank}</text>
+      
+      <!-- Stats -->
+      <text x="180" y="180" fill="${textColor}" font-family="Arial, sans-serif" font-size="16">Messages: ${profileData.stats.totalMessages || 0}</text>
+      <text x="180" y="200" fill="${textColor}" font-family="Arial, sans-serif" font-size="16">Voice Time: ${profileData.stats.voiceTime || 0}h</text>
+      <text x="180" y="220" fill="${textColor}" font-family="Arial, sans-serif" font-size="16">Points: ${profileData.stats.points || 0}P</text>
+      
+      <!-- Progress Bar Background -->
+      <rect x="450" y="170" width="250" height="20" fill="#2F3136" rx="10"/>
+      
+      <!-- Progress Bar Fill -->
+      <rect x="450" y="170" width="${progressWidth}" height="20" fill="${accentColor}" rx="10"/>
+      
+      <!-- Progress Text -->
+      <text x="575" y="184" text-anchor="middle" fill="${textColor}" font-family="Arial, sans-serif" font-size="14">${profileData.stats.xp}/${profileData.stats.maxXp} XP</text>
+    </svg>
+  `;
 }
 
 // Configure multer for file uploads
@@ -1233,12 +1176,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // Generate profile card image
-      const canvas = await generateProfileCard(profileData);
-      const buffer = canvas.toBuffer('image/png');
+      // Generate profile card SVG
+      const svgContent = generateProfileCardSVG(profileData);
 
-      res.setHeader('Content-Type', 'image/png');
-      res.send(buffer);
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.send(svgContent);
     } catch (error) {
       console.error('Profile card error:', error);
       res.status(500).json({ message: "Failed to generate profile card" });
@@ -1249,12 +1191,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const profileData = req.body;
       
-      // Generate profile card with provided data
-      const canvas = await generateProfileCard(profileData);
-      const buffer = canvas.toBuffer('image/png');
+      // Generate profile card SVG with provided data
+      const svgContent = generateProfileCardSVG(profileData);
 
-      res.setHeader('Content-Type', 'image/png');
-      res.send(buffer);
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.send(svgContent);
     } catch (error) {
       console.error('Profile card generation error:', error);
       res.status(500).json({ message: "Failed to generate profile card" });
