@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Upload, Crop } from "lucide-react";
+import { Plus, Upload, Crop as CropIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 // Mock server ID for demo
 // Extract serverId from URL path
@@ -40,6 +42,16 @@ export default function Marketplace() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cropPreview, setCropPreview] = useState<string>("");
+  const [crop, setCrop] = useState<Crop>({
+    unit: '%',
+    width: 90,
+    height: 50,
+    x: 5,
+    y: 25
+  });
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const imgRef = useRef<HTMLImageElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const serverId = useServerId();
 
@@ -91,8 +103,51 @@ export default function Marketplace() {
     });
     setSelectedFile(null);
     setCropPreview("");
+    setCrop({
+      unit: '%',
+      width: 90,
+      height: 50,
+      x: 5,
+      y: 25
+    });
+    setCompletedCrop(undefined);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  // 크롭된 이미지를 캔버스에 그리기
+  const drawCroppedImage = useCallback((
+    image: HTMLImageElement,
+    canvas: HTMLCanvasElement,
+    crop: PixelCrop
+  ) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+
+    canvas.width = 800; // 고정 크기로 설정
+    canvas.height = 400;
+
+    ctx.drawImage(
+      image,
+      crop.x * scaleX,
+      crop.y * scaleY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      800,
+      400
+    );
+  }, []);
+
+  // 크롭 완료 시 미리보기 업데이트
+  const onCropComplete = useCallback((crop: PixelCrop) => {
+    if (imgRef.current && previewCanvasRef.current && crop.width && crop.height) {
+      drawCroppedImage(imgRef.current, previewCanvasRef.current, crop);
+    }
+  }, [drawCroppedImage]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -147,9 +202,27 @@ export default function Marketplace() {
       return;
     }
 
+    if (!completedCrop || !previewCanvasRef.current) {
+      toast({
+        title: "크롭 오류",
+        description: "이미지를 크롭해주세요.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      // 크롭된 이미지를 blob으로 변환
+      const canvas = previewCanvasRef.current;
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+        }, 'image/png', 0.95);
+      });
+
       const formData = new FormData();
-      formData.append('image', selectedFile);
+      const croppedFile = new File([blob], `cropped_${selectedFile.name}`, { type: 'image/png' });
+      formData.append('image', croppedFile);
       formData.append('name', uploadForm.name);
       formData.append('description', uploadForm.description);
       formData.append('price', uploadForm.price.toString());
@@ -161,6 +234,11 @@ export default function Marketplace() {
       await uploadMutation.mutateAsync(formData);
     } catch (error) {
       console.error('Upload error:', error);
+      toast({
+        title: "업로드 오류",
+        description: "이미지 처리 중 오류가 발생했습니다.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -339,19 +417,62 @@ export default function Marketplace() {
                     ref={fileInputRef}
                   />
                   {cropPreview && (
-                    <div className="mt-4">
+                    <div className="mt-4 space-y-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <Crop className="w-4 h-4" />
-                        <span className="text-sm">미리보기 (800x400 크기로 자동 조정됩니다)</span>
+                        <CropIcon className="w-4 h-4" />
+                        <span className="text-sm">이미지 크롭 (드래그하여 원하는 영역을 선택하세요)</span>
                       </div>
+                      
                       <div className="border rounded-lg overflow-hidden">
-                        <img 
-                          src={cropPreview} 
-                          alt="Preview"
-                          className="w-full h-32 object-cover"
-                          style={{ aspectRatio: '2/1' }}
-                        />
+                        <ReactCrop
+                          crop={crop}
+                          onChange={(c) => setCrop(c)}
+                          onComplete={(c) => {
+                            setCompletedCrop(c);
+                            onCropComplete(c);
+                          }}
+                          aspect={2}
+                        >
+                          <img
+                            ref={imgRef}
+                            src={cropPreview}
+                            alt="원본 이미지"
+                            style={{ maxHeight: '300px', width: 'auto' }}
+                            onLoad={() => {
+                              if (imgRef.current && previewCanvasRef.current) {
+                                const initialCrop: PixelCrop = {
+                                  unit: 'px',
+                                  x: imgRef.current.width * 0.05,
+                                  y: imgRef.current.height * 0.25,
+                                  width: imgRef.current.width * 0.9,
+                                  height: imgRef.current.height * 0.5
+                                };
+                                setCompletedCrop(initialCrop);
+                                onCropComplete(initialCrop);
+                              }
+                            }}
+                          />
+                        </ReactCrop>
                       </div>
+
+                      {completedCrop && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">미리보기 (800x400)</span>
+                          </div>
+                          <div className="border rounded-lg overflow-hidden bg-gray-100">
+                            <canvas
+                              ref={previewCanvasRef}
+                              style={{
+                                width: '100%',
+                                height: 'auto',
+                                maxHeight: '200px',
+                                objectFit: 'contain'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
