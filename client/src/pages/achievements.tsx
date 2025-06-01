@@ -329,14 +329,14 @@ export default function Achievements() {
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="backgroundReward" className="text-right">배경 보상</Label>
                 <Select
-                  value={achievementForm.backgroundReward?.toString() || ""}
-                  onValueChange={(value) => setAchievementForm(prev => ({ ...prev, backgroundReward: value ? parseInt(value) : null }))}
+                  value={achievementForm.backgroundReward?.toString() || "none"}
+                  onValueChange={(value) => setAchievementForm(prev => ({ ...prev, backgroundReward: value === "none" ? null : parseInt(value) }))}
                 >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="선택 안함" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">선택 안함</SelectItem>
+                    <SelectItem value="none">선택 안함</SelectItem>
                     {backgrounds?.map((bg: any) => (
                       <SelectItem key={bg.id} value={bg.id.toString()}>
                         {bg.name}

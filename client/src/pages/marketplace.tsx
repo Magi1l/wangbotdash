@@ -311,13 +311,14 @@ export default function Marketplace() {
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="achievement" className="text-right">필요 업적</Label>
                   <Select
-                    value={uploadForm.requiredAchievementId?.toString() || ""}
-                    onValueChange={(value) => setUploadForm(prev => ({ ...prev, requiredAchievementId: value ? parseInt(value) : null }))}
+                    value={uploadForm.requiredAchievementId?.toString() || "none"}
+                    onValueChange={(value) => setUploadForm(prev => ({ ...prev, requiredAchievementId: value === "none" ? null : parseInt(value) }))}
                   >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="업적을 선택하세요" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">선택 안함</SelectItem>
                       {achievements?.map((achievement: any) => (
                         <SelectItem key={achievement.id} value={achievement.id.toString()}>
                           {achievement.name}

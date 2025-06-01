@@ -1228,8 +1228,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const channels = await response.json();
       console.log('Fetched channels:', channels.length);
-      const textChannels = channels.filter((channel: any) => channel.type === 0);
-      res.json(textChannels);
+      // Include text channels (0), voice channels (2), and category channels (4)
+      const filteredChannels = channels.filter((channel: any) => 
+        channel.type === 0 || channel.type === 2 || channel.type === 4
+      );
+      res.json(filteredChannels);
     } catch (error) {
       console.error('Channels API error:', error);
       res.json([]);
@@ -1257,8 +1260,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const channels = await response.json();
-      const textChannels = channels.filter((channel: any) => channel.type === 0);
-      res.json(textChannels);
+      // Include text channels (0), voice channels (2), and category channels (4)
+      const filteredChannels = channels.filter((channel: any) => 
+        channel.type === 0 || channel.type === 2 || channel.type === 4
+      );
+      res.json(filteredChannels);
     } catch (error) {
       res.json([]);
     }
