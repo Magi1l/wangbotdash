@@ -30,8 +30,13 @@ export function setupAuth(app: Express) {
       fullUrl: `${protocol}://${host}`
     });
     
-    // 현재 호스트 기반으로 리다이렉트 URI 생성
-    const redirectUri = encodeURIComponent(`${protocol}://${host}/auth/discord/callback`);
+    // Railway 배포 환경에서는 고정 URI 사용
+    let redirectUri;
+    if (host?.includes('railway.app') || host?.includes('up.railway.app')) {
+      redirectUri = encodeURIComponent('https://wangbotdash-production.up.railway.app/auth/discord/callback');
+    } else {
+      redirectUri = encodeURIComponent(`${protocol}://${host}/auth/discord/callback`);
+    }
     const scope = encodeURIComponent('identify guilds');
     const responseType = 'code';
     
@@ -51,6 +56,18 @@ export function setupAuth(app: Express) {
     }
 
     try {
+      const host = req.get('host');
+      
+      // Railway 환경에서는 고정 URI 사용
+      let callbackUri;
+      if (host?.includes('railway.app') || host?.includes('up.railway.app')) {
+        callbackUri = 'https://wangbotdash-production.up.railway.app/auth/discord/callback';
+      } else {
+        callbackUri = `${req.protocol}://${host}/auth/discord/callback`;
+      }
+      
+      console.log('Token exchange - using callback URI:', callbackUri);
+      
       // Exchange code for access token
       const tokenResponse = await fetch('https://discord.com/api/v10/oauth2/token', {
         method: 'POST',
@@ -62,7 +79,7 @@ export function setupAuth(app: Express) {
           client_secret: process.env.DISCORD_CLIENT_SECRET!,
           code: code as string,
           grant_type: 'authorization_code',
-          redirect_uri: `${req.protocol}://${req.get('host')}/auth/discord/callback`,
+          redirect_uri: callbackUri,
         }),
       });
 
