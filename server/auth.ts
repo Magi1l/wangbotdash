@@ -21,9 +21,8 @@ export function setupAuth(app: Express) {
   // Discord OAuth routes
   app.get('/auth/discord', (req, res) => {
     const clientId = process.env.DISCORD_CLIENT_ID;
-    // 환경변수가 있으면 사용, 없으면 현재 호스트 사용
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-    const redirectUri = encodeURIComponent(`${baseUrl}/auth/discord/callback`);
+    // 현재 호스트 기반으로 리다이렉트 URI 생성
+    const redirectUri = encodeURIComponent(`${req.protocol}://${req.get('host')}/auth/discord/callback`);
     const scope = encodeURIComponent('identify guilds');
     const responseType = 'code';
     
@@ -51,7 +50,7 @@ export function setupAuth(app: Express) {
           client_secret: process.env.DISCORD_CLIENT_SECRET!,
           code: code as string,
           grant_type: 'authorization_code',
-          redirect_uri: `${process.env.BASE_URL || `${req.protocol}://${req.get('host')}`}/auth/discord/callback`,
+          redirect_uri: `${req.protocol}://${req.get('host')}/auth/discord/callback`,
         }),
       });
 
@@ -66,7 +65,7 @@ export function setupAuth(app: Express) {
       const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
-          'User-Agent': `WangBot Dashboard (${process.env.BASE_URL || `${req.protocol}://${req.get('host')}`}, 1.0.0)`,
+          'User-Agent': `WangBot Dashboard (${req.protocol}://${req.get('host')}, 1.0.0)`,
         },
       });
 
@@ -81,7 +80,7 @@ export function setupAuth(app: Express) {
       const guildsResponse = await fetch('https://discord.com/api/v10/users/@me/guilds', {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
-          'User-Agent': `WangBot Dashboard (${process.env.BASE_URL || `${req.protocol}://${req.get('host')}`}, 1.0.0)`,
+          'User-Agent': `WangBot Dashboard (${req.protocol}://${req.get('host')}, 1.0.0)`,
         },
       });
 
