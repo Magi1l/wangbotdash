@@ -371,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Channel configuration routes (Admin only)
-  app.get("/api/servers/:serverId/channels", requireServerAdmin, async (req, res) => {
+  app.get("/api/servers/:serverId/channel-configs", async (req, res) => {
     try {
       const configs = await storage.getChannelConfigs(req.params.serverId);
       res.json(configs);
@@ -380,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/servers/:serverId/channels", requireServerAdmin, async (req, res) => {
+  app.post("/api/servers/:serverId/channel-configs", async (req, res) => {
     try {
       const configData = insertChannelConfigSchema.parse({
         ...req.body,
