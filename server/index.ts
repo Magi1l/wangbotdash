@@ -1,8 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { config } from "dotenv";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { connectMongoDB } from "./mongodb";
 import { setupAuth } from "./auth";
+
+// Load environment variables
+config({ path: '.env.local' });
 
 const app = express();
 app.use(express.json());
