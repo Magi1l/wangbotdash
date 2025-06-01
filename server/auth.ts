@@ -21,12 +21,24 @@ export function setupAuth(app: Express) {
   // Discord OAuth routes
   app.get('/auth/discord', (req, res) => {
     const clientId = process.env.DISCORD_CLIENT_ID;
+    const host = req.get('host');
+    const protocol = req.protocol;
+    
+    console.log('OAuth Request Info:', {
+      host,
+      protocol,
+      fullUrl: `${protocol}://${host}`
+    });
+    
     // 현재 호스트 기반으로 리다이렉트 URI 생성
-    const redirectUri = encodeURIComponent(`${req.protocol}://${req.get('host')}/auth/discord/callback`);
+    const redirectUri = encodeURIComponent(`${protocol}://${host}/auth/discord/callback`);
     const scope = encodeURIComponent('identify guilds');
     const responseType = 'code';
     
     const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`;
+    
+    console.log('Generated Auth URL:', discordAuthUrl);
+    console.log('Redirect URI:', `${protocol}://${host}/auth/discord/callback`);
     
     res.redirect(discordAuthUrl);
   });
