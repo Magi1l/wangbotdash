@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { connectMongoDB } from "./mongodb";
 import { setupAuth } from "./auth";
+import { setupSimpleAPI } from "./simple-api";
 
 
 
@@ -47,6 +48,9 @@ app.use((req, res, next) => {
     
     // Setup authentication
     setupAuth(app);
+
+    // Setup simple API (without complex validation)
+    setupSimpleAPI(app);
 
     const server = await registerRoutes(app);
 
