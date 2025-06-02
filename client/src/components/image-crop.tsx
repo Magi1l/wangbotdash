@@ -52,32 +52,29 @@ export function ImageCrop({ src, onCropComplete }: ImageCropProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 이미지의 실제 표시 크기와 원본 크기 비율 계산
-    const displayRect = img.getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    
-    if (!containerRect) return;
-
-    // 컨테이너 기준으로 상대적 위치 계산
-    const relativeX = crop.x;
-    const relativeY = crop.y;
-    const relativeWidth = crop.width;
-    const relativeHeight = crop.height;
-
-    // 실제 이미지 크기에 대한 비율 계산
+    // 이미지 크기 비율 계산
     const scaleX = img.naturalWidth / img.clientWidth;
     const scaleY = img.naturalHeight / img.clientHeight;
 
     canvas.width = 800;
     canvas.height = 400;
 
-    // 정확한 좌표로 크롭
+    // 크롭 영역을 원본 이미지 좌표로 변환
+    const sourceX = crop.x * scaleX;
+    const sourceY = crop.y * scaleY;
+    const sourceWidth = crop.width * scaleX;
+    const sourceHeight = crop.height * scaleY;
+
+    // 캔버스 클리어
+    ctx.clearRect(0, 0, 800, 400);
+    
+    // 크롭된 이미지를 800x400으로 그리기
     ctx.drawImage(
       img,
-      relativeX * scaleX,
-      relativeY * scaleY,
-      relativeWidth * scaleX,
-      relativeHeight * scaleY,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
       0,
       0,
       800,
