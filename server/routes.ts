@@ -923,6 +923,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Achievement management routes
+  app.get("/api/servers/:serverId/achievements", async (req, res) => {
+    try {
+      const achievements = await storage.getAchievements(req.params.serverId);
+      res.json(achievements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch achievements" });
+    }
+  });
+
+  app.post("/api/servers/:serverId/achievements", async (req, res) => {
+    try {
+      const achievementData = {
+        serverId: req.params.serverId,
+        ...req.body
+      };
+      const achievement = await storage.createAchievement(achievementData);
+      res.status(201).json(achievement);
+    } catch (error) {
+      console.error("Achievement creation error:", error);
+      res.status(500).json({ message: "Failed to create achievement" });
+    }
+  });
+
+  app.patch("/api/achievements/:id", async (req, res) => {
+    try {
+      await storage.updateAchievement(parseInt(req.params.id), req.body);
+      res.json({ message: "Achievement updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update achievement" });
+    }
+  });
+
+  app.delete("/api/achievements/:id", async (req, res) => {
+    try {
+      await storage.deleteAchievement(parseInt(req.params.id));
+      res.json({ message: "Achievement deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete achievement" });
+    }
+  });
+
   // Bot guild information route
   app.get("/api/bot/guilds", async (req, res) => {
     try {

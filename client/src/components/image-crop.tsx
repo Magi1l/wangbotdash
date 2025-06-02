@@ -19,6 +19,7 @@ export function ImageCrop({ src, onCropComplete }: ImageCropProps) {
   const [cropArea, setCropArea] = useState<CropArea>({ x: 0, y: 0, width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string>('');
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -70,41 +71,93 @@ export function ImageCrop({ src, onCropComplete }: ImageCropProps) {
     );
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent, handle?: string) => {
     e.preventDefault();
+    e.stopPropagation();
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    setIsDragging(true);
-    setDragStart({ x: x - cropArea.x, y: y - cropArea.y });
+    if (handle) {
+      setIsResizing(true);
+      setResizeHandle(handle);
+      setDragStart({ x, y });
+    } else {
+      setIsDragging(true);
+      setDragStart({ x: x - cropArea.x, y: y - cropArea.y });
+    }
   }, [cropArea]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging || !containerRef.current || !imgRef.current) return;
+    if ((!isDragging && !isResizing) || !containerRef.current || !imgRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left - dragStart.x;
-    const y = e.clientY - rect.top - dragStart.y;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-    const maxX = imgRef.current.clientWidth - cropArea.width;
-    const maxY = imgRef.current.clientHeight - cropArea.height;
+    if (isResizing) {
+      const deltaX = x - dragStart.x;
+      const deltaY = y - dragStart.y;
+      let newCrop = { ...cropArea };
 
-    const newCrop = {
-      ...cropArea,
-      x: Math.max(0, Math.min(x, maxX)),
-      y: Math.max(0, Math.min(y, maxY))
-    };
+      switch (resizeHandle) {
+        case 'se': // 우하단
+          newCrop.width = Math.max(50, cropArea.width + deltaX);
+          newCrop.height = newCrop.width / 2; // 2:1 비율 유지
+          break;
+        case 'sw': // 좌하단
+          const newWidth = Math.max(50, cropArea.width - deltaX);
+          newCrop.width = newWidth;
+          newCrop.height = newWidth / 2;
+          newCrop.x = cropArea.x + (cropArea.width - newWidth);
+          break;
+        case 'ne': // 우상단
+          const newWidthNE = Math.max(50, cropArea.width + deltaX);
+          newCrop.width = newWidthNE;
+          newCrop.height = newWidthNE / 2;
+          newCrop.y = cropArea.y + cropArea.height - newCrop.height;
+          break;
+        case 'nw': // 좌상단
+          const newWidthNW = Math.max(50, cropArea.width - deltaX);
+          newCrop.width = newWidthNW;
+          newCrop.height = newWidthNW / 2;
+          newCrop.x = cropArea.x + (cropArea.width - newWidthNW);
+          newCrop.y = cropArea.y + cropArea.height - newCrop.height;
+          break;
+      }
 
-    setCropArea(newCrop);
-    updatePreview(newCrop);
-  }, [isDragging, dragStart, cropArea, updatePreview]);
+      // 경계 체크
+      const maxX = imgRef.current.clientWidth - newCrop.width;
+      const maxY = imgRef.current.clientHeight - newCrop.height;
+      newCrop.x = Math.max(0, Math.min(newCrop.x, maxX));
+      newCrop.y = Math.max(0, Math.min(newCrop.y, maxY));
+
+      setCropArea(newCrop);
+      updatePreview(newCrop);
+    } else if (isDragging) {
+      const newX = x - dragStart.x;
+      const newY = y - dragStart.y;
+
+      const maxX = imgRef.current.clientWidth - cropArea.width;
+      const maxY = imgRef.current.clientHeight - cropArea.height;
+
+      const newCrop = {
+        ...cropArea,
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY))
+      };
+
+      setCropArea(newCrop);
+      updatePreview(newCrop);
+    }
+  }, [isDragging, isResizing, resizeHandle, dragStart, cropArea, updatePreview]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
     setIsResizing(false);
+    setResizeHandle('');
   }, []);
 
   const handleCropFinish = useCallback(() => {
@@ -167,10 +220,22 @@ export function ImageCrop({ src, onCropComplete }: ImageCropProps) {
               </div>
               
               {/* 모서리 핸들 */}
-              <div className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize"></div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize"></div>
-              <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize"></div>
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize"></div>
+              <div 
+                className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize"
+                onMouseDown={(e) => handleMouseDown(e, 'nw')}
+              ></div>
+              <div 
+                className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize"
+                onMouseDown={(e) => handleMouseDown(e, 'ne')}
+              ></div>
+              <div 
+                className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize"
+                onMouseDown={(e) => handleMouseDown(e, 'sw')}
+              ></div>
+              <div 
+                className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize"
+                onMouseDown={(e) => handleMouseDown(e, 'se')}
+              ></div>
             </div>
           </>
         )}
