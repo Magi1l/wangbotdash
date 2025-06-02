@@ -943,15 +943,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/servers/:serverId/achievements", async (req, res) => {
     try {
+      console.log('Achievement creation request:', req.body);
+      
+      const { name, description, type, isHidden, pointReward, backgroundReward, eventStartDate, eventEndDate, conditions } = req.body;
+      
+      // Transform frontend data to match schema
       const achievementData = {
         serverId: req.params.serverId,
-        ...req.body
+        name,
+        description,
+        icon: type === 'level' ? 'crown' : type === 'hidden' ? 'question' : type === 'event' ? 'gift' : 'star',
+        type,
+        isHidden: isHidden || false,
+        conditions: conditions ? {
+          messages: conditions.find((c: any) => c.type === 'messages')?.value,
+          voiceTime: conditions.find((c: any) => c.type === 'voice_time')?.value,
+          level: conditions.find((c: any) => c.type === 'level')?.value,
+        } : {},
+        rewards: {
+          points: pointReward || 0,
+          backgroundId: backgroundReward ? parseInt(backgroundReward) : undefined,
+        },
+        eventEndDate: eventEndDate ? new Date(eventEndDate) : null
       };
+      
+      console.log('Transformed achievement data:', achievementData);
+      
       const achievement = await storage.createAchievement(achievementData);
       res.status(201).json(achievement);
     } catch (error) {
       console.error("Achievement creation error:", error);
-      res.status(500).json({ message: "Failed to create achievement" });
+      res.status(500).json({ 
+        message: "Failed to create achievement",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

@@ -148,10 +148,33 @@ export default function Marketplace() {
   };
 
   const handleUploadSubmit = async () => {
-    if (!selectedFile || !uploadForm.name.trim()) {
+    console.log('Upload submit called');
+    console.log('Form data:', uploadForm);
+    console.log('Selected file:', selectedFile);
+    console.log('Cropped blob:', croppedBlob);
+
+    if (!uploadForm.name.trim()) {
       toast({
         title: "입력 오류",
-        description: "배경 이름과 이미지를 모두 입력해주세요.",
+        description: "배경 이름을 입력해주세요.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!uploadForm.description.trim()) {
+      toast({
+        title: "입력 오류", 
+        description: "배경 설명을 입력해주세요.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedFile) {
+      toast({
+        title: "파일 선택 오류",
+        description: "업로드할 이미지를 선택해주세요.",
         variant: "destructive"
       });
       return;
@@ -174,16 +197,17 @@ export default function Marketplace() {
       formData.append('description', uploadForm.description);
       formData.append('price', uploadForm.price.toString());
       formData.append('category', uploadForm.category);
-      if (uploadForm.requiredAchievementId) {
+      if (uploadForm.requiredAchievementId && uploadForm.requiredAchievementId !== null) {
         formData.append('requiredAchievementId', uploadForm.requiredAchievementId.toString());
       }
 
-      await uploadMutation.mutateAsync(formData);
+      console.log('Submitting form data...');
+      uploadMutation.mutate(formData);
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Upload submit error:', error);
       toast({
         title: "업로드 오류",
-        description: "이미지 처리 중 오류가 발생했습니다.",
+        description: "파일 업로드 중 오류가 발생했습니다.",
         variant: "destructive"
       });
     }
