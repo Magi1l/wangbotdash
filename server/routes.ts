@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertServerSchema, insertChannelConfigSchema, insertAchievementSchema, insertBackgroundSchema } from "@shared/schema";
 import { requireAuth, requireServerAdmin, requireServerAccess } from "./auth";
+import { getAchievementsCollection, getBackgroundsCollection } from "./mongodb";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -951,34 +952,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Name and description are required" });
       }
 
-      // Transform frontend data to match schema - simpler version
+      // Direct MongoDB insertion without any validation
+      const collection = getAchievementsCollection();
       const achievementData = {
+        id: Date.now(),
         serverId: req.params.serverId,
         name: name.trim(),
         description: description.trim(),
         icon: type === 'level' ? 'crown' : type === 'hidden' ? 'question' : type === 'event' ? 'gift' : 'star',
         type: type || 'activity',
         isHidden: Boolean(isHidden),
-        conditions: conditions && conditions.length > 0 ? 
-          conditions.reduce((acc: any, c: any) => {
-            if (c.type === 'messages' && c.value) acc.messages = parseInt(c.value);
-            if (c.type === 'voice_time' && c.value) acc.voiceTime = parseInt(c.value);
-            if (c.type === 'level' && c.value) acc.level = parseInt(c.value);
-            return acc;
-          }, {}) : { messages: 1 }, // Default condition
+        conditions: {
+          messages: conditions?.find((c: any) => c.type === 'messages')?.value || 1
+        },
         rewards: {
           points: parseInt(pointReward) || 0,
-          backgroundId: backgroundReward && backgroundReward !== 'none' ? parseInt(backgroundReward) : undefined,
+          ...(backgroundReward && backgroundReward !== 'none' ? { backgroundId: parseInt(backgroundReward) } : {})
         },
-        eventEndDate: eventEndDate ? new Date(eventEndDate) : null
+        eventEndDate: eventEndDate ? new Date(eventEndDate) : null,
+        createdAt: new Date()
       };
       
-      console.log('Transformed achievement data:', achievementData);
+      console.log('Direct MongoDB insertion:', achievementData);
       
-      // Skip schema validation and create directly
-      const achievement = await storage.createAchievement(achievementData);
-      console.log('Achievement created successfully:', achievement);
-      res.status(201).json(achievement);
+      await collection.insertOne(achievementData);
+      console.log('Achievement inserted successfully');
+      res.status(201).json(achievementData);
     } catch (error) {
       console.error("Achievement creation error:", error);
       res.status(500).json({ 
@@ -1056,8 +1055,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Name and description are required" });
       }
 
-      // Create background record - bypass schema validation
+      // Direct MongoDB insertion without any validation
+      const collection = getBackgroundsCollection();
       const backgroundData = {
+        id: Date.now(),
         serverId,
         name: name.trim(),
         description: description.trim(),
@@ -1065,14 +1066,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         creatorId: 'system',
         price: parseInt(price) || 0,
         category: category || 'free',
-        requiredAchievementId: requiredAchievementId && requiredAchievementId !== 'none' ? parseInt(requiredAchievementId) : undefined,
-        isActive: true
+        requiredAchievementId: requiredAchievementId && requiredAchievementId !== 'none' ? parseInt(requiredAchievementId) : null,
+        isActive: true,
+        sales: 0,
+        createdAt: new Date()
       };
 
-      console.log('Creating background with data:', backgroundData);
-      const background = await storage.createBackground(backgroundData);
-      console.log('Background created successfully:', background);
-      res.status(201).json(background);
+      console.log('Direct MongoDB background insertion:', backgroundData);
+      await collection.insertOne(backgroundData);
+      console.log('Background inserted successfully');
+      res.status(201).json(backgroundData);
     } catch (error) {
       console.error("Background upload error:", error);
       res.status(500).json({ 
