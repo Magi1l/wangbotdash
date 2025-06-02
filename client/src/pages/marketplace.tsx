@@ -56,11 +56,17 @@ export default function Marketplace() {
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
+      console.log('Uploading to:', `/api/servers/${serverId}/backgrounds`);
       const response = await fetch(`/api/servers/${serverId}/backgrounds`, {
         method: 'POST',
         body: formData
       });
-      if (!response.ok) throw new Error('Upload failed');
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload failed:', response.status, errorText);
+        throw new Error(`Upload failed: ${response.status} ${errorText}`);
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -72,10 +78,11 @@ export default function Marketplace() {
       resetUploadForm();
       queryClient.invalidateQueries({ queryKey: [`/api/servers/${serverId}/backgrounds`] });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Upload mutation error:', error);
       toast({
         title: "업로드 실패",
-        description: "배경 업로드 중 오류가 발생했습니다.",
+        description: `배경 업로드 중 오류가 발생했습니다: ${error.message}`,
         variant: "destructive"
       });
     }

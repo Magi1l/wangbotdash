@@ -74,7 +74,11 @@ export default function Achievements() {
 
   const createAchievementMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", `/api/servers/${serverId}/achievements`, data);
+      console.log('Creating achievement:', data);
+      console.log('Server ID:', serverId);
+      const result = await apiRequest("POST", `/api/servers/${serverId}/achievements`, data);
+      console.log('Achievement created:', result);
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/servers/${serverId}/achievements`] });
@@ -85,6 +89,14 @@ export default function Achievements() {
         description: "새로운 업적이 성공적으로 생성되었습니다.",
       });
     },
+    onError: (error: any) => {
+      console.error('Achievement creation error:', error);
+      toast({
+        title: "업적 생성 실패",
+        description: `업적 생성 중 오류가 발생했습니다: ${error.message}`,
+        variant: "destructive"
+      });
+    }
   });
 
   const resetForm = () => {

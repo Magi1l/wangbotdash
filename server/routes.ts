@@ -65,7 +65,15 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const upload = multer({
-  dest: uploadDir,
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}-${file.originalname}`;
+      cb(null, uniqueName);
+    }
+  }),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
@@ -996,11 +1004,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Background upload and management
   app.post("/api/servers/:serverId/backgrounds", upload.single('image'), async (req, res) => {
     try {
+      console.log('Background upload request received');
+      console.log('ServerId:', req.params.serverId);
+      console.log('Request body:', req.body);
+      console.log('File info:', req.file);
+      
       const { serverId } = req.params;
       const { name, description, price, category, requiredAchievementId } = req.body;
       
       if (!req.file) {
+        console.error('No file uploaded');
         return res.status(400).json({ message: "Image file is required" });
+      }
+
+      if (!name || !description) {
+        console.error('Missing required fields:', { name, description });
+        return res.status(400).json({ message: "Name and description are required" });
       }
 
       // Create background record
@@ -1009,17 +1028,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name,
         description,
         imageUrl: `/uploads/${req.file.filename}`,
-        creatorId: req.user?.id || 'unknown',
+        creatorId: 'system',
         price: parseInt(price) || 0,
-        category,
-        requiredAchievementId: requiredAchievementId ? parseInt(requiredAchievementId) : null
+        category: category || 'free',
+        requiredAchievementId: requiredAchievementId && requiredAchievementId !== 'none' ? parseInt(requiredAchievementId) : null
       };
 
+      console.log('Creating background with data:', backgroundData);
       const background = await storage.createBackground(backgroundData);
+      console.log('Background created successfully:', background);
       res.status(201).json(background);
     } catch (error) {
       console.error("Background upload error:", error);
-      res.status(500).json({ message: "Failed to upload background" });
+      res.status(500).json({ 
+        message: "Failed to upload background",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
