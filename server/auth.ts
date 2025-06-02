@@ -33,7 +33,7 @@ export function setupAuth(app: Express) {
     // Railway 배포 환경에서는 고정 URI 사용
     let redirectUri;
     if (host?.includes('railway.app') || host?.includes('up.railway.app')) {
-      redirectUri = encodeURIComponent('https://wangbotdash-production.up.railway.app/auth/discord/callback');
+      redirectUri = encodeURIComponent('https://wangbotdash.up.railway.app/auth/discord/callback');
     } else {
       redirectUri = encodeURIComponent(`${protocol}://${host}/auth/discord/callback`);
     }
@@ -61,7 +61,7 @@ export function setupAuth(app: Express) {
       // Railway 환경에서는 고정 URI 사용
       let callbackUri;
       if (host?.includes('railway.app') || host?.includes('up.railway.app')) {
-        callbackUri = 'https://wangbotdash-production.up.railway.app/auth/discord/callback';
+        callbackUri = 'https://wangbotdash.up.railway.app/auth/discord/callback';
       } else {
         callbackUri = `${req.protocol}://${host}/auth/discord/callback`;
       }

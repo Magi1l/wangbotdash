@@ -8,12 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Upload, Crop as CropIcon } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
+import { ImageCrop } from "@/components/image-crop";
 
-// Mock server ID for demo
 // Extract serverId from URL path
 function useServerId() {
   const currentPath = window.location.pathname;
@@ -42,16 +40,7 @@ export default function Marketplace() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cropPreview, setCropPreview] = useState<string>("");
-  const [crop, setCrop] = useState<Crop>({
-    unit: '%',
-    width: 90,
-    height: 50,
-    x: 5,
-    y: 25
-  });
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
-  const imgRef = useRef<HTMLImageElement>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const serverId = useServerId();
 
@@ -60,12 +49,11 @@ export default function Marketplace() {
     enabled: !!serverId,
   });
 
-  const { data: achievements = [] } = useQuery({
+  const { data: achievements } = useQuery({
     queryKey: [`/api/servers/${serverId}/achievements`],
     enabled: !!serverId,
   });
 
-  // Upload background mutation
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       const response = await fetch(`/api/servers/${serverId}/backgrounds`, {
@@ -103,56 +91,17 @@ export default function Marketplace() {
     });
     setSelectedFile(null);
     setCropPreview("");
-    setCrop({
-      unit: '%',
-      width: 90,
-      height: 50,
-      x: 5,
-      y: 25
-    });
-    setCompletedCrop(undefined);
+    setCroppedBlob(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // 크롭된 이미지를 캔버스에 그리기
-  const drawCroppedImage = useCallback((
-    image: HTMLImageElement,
-    canvas: HTMLCanvasElement,
-    crop: PixelCrop
-  ) => {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-
-    canvas.width = 800; // 고정 크기로 설정
-    canvas.height = 400;
-
-    ctx.drawImage(
-      image,
-      crop.x * scaleX,
-      crop.y * scaleY,
-      crop.width * scaleX,
-      crop.height * scaleY,
-      0,
-      0,
-      800,
-      400
-    );
+  const handleCropComplete = useCallback((blob: Blob) => {
+    setCroppedBlob(blob);
   }, []);
-
-  // 크롭 완료 시 미리보기 업데이트
-  const onCropComplete = useCallback((crop: PixelCrop) => {
-    if (imgRef.current && previewCanvasRef.current && crop.width && crop.height) {
-      drawCroppedImage(imgRef.current, previewCanvasRef.current, crop);
-    }
-  }, [drawCroppedImage]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Check file type
       if (!file.type.startsWith('image/')) {
         toast({
           title: "파일 오류",
@@ -162,7 +111,6 @@ export default function Marketplace() {
         return;
       }
 
-      // Check file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "파일 크기 오류",
@@ -174,17 +122,17 @@ export default function Marketplace() {
 
       setSelectedFile(file);
       
-      // Create preview for cropping
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target?.result) {
-          setCropPreview(e.target.result as string);
+          const imageUrl = e.target.result as string;
+          setCropPreview(imageUrl);
         }
       };
       reader.onerror = () => {
         toast({
           title: "파일 읽기 오류",
-          description: "이미지 파일을 읽을 수 없습니다.",
+          description: "파일을 읽는 중 오류가 발생했습니다.",
           variant: "destructive"
         });
       };
@@ -202,26 +150,18 @@ export default function Marketplace() {
       return;
     }
 
-    if (!completedCrop || !previewCanvasRef.current) {
+    if (!croppedBlob) {
       toast({
-        title: "크롭 오류",
-        description: "이미지를 크롭해주세요.",
+        title: "이미지 처리 오류",
+        description: "이미지 크롭이 완료될 때까지 기다려주세요.",
         variant: "destructive"
       });
       return;
     }
 
     try {
-      // 크롭된 이미지를 blob으로 변환
-      const canvas = previewCanvasRef.current;
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-        }, 'image/png', 0.95);
-      });
-
       const formData = new FormData();
-      const croppedFile = new File([blob], `cropped_${selectedFile.name}`, { type: 'image/png' });
+      const croppedFile = new File([croppedBlob], `cropped_${selectedFile.name}`, { type: 'image/png' });
       formData.append('image', croppedFile);
       formData.append('name', uploadForm.name);
       formData.append('description', uploadForm.description);
@@ -242,36 +182,7 @@ export default function Marketplace() {
     }
   };
 
-  const handlePreview = (background: any) => {
-    toast({
-      title: "미리보기",
-      description: `${background.name} 배경을 미리보기합니다.`,
-    });
-  };
-
-  const handlePurchase = (background: any) => {
-    toast({
-      title: "구매 완료",
-      description: `${background.name} 배경을 ${background.price}P에 구매했습니다.`,
-    });
-  };
-
-  const handleEdit = (background: any) => {
-    toast({
-      title: "편집",
-      description: `${background.name} 배경을 편집합니다.`,
-    });
-  };
-
-  const handleDelete = (background: any) => {
-    toast({
-      title: "삭제",
-      description: `${background.name} 배경을 삭제했습니다.`,
-      variant: "destructive",
-    });
-  };
-
-  // Mock data for demonstration
+  // Mock data for demo
   const mockBackgrounds = [
     {
       id: 1,
@@ -331,7 +242,7 @@ export default function Marketplace() {
               배경 업로드
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>새 배경 업로드</DialogTitle>
             </DialogHeader>
@@ -397,7 +308,7 @@ export default function Marketplace() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">선택 안함</SelectItem>
-                      {achievements?.map((achievement: any) => (
+                      {Array.isArray(achievements) && achievements.map((achievement: any) => (
                         <SelectItem key={achievement.id} value={achievement.id.toString()}>
                           {achievement.name}
                         </SelectItem>
@@ -417,62 +328,11 @@ export default function Marketplace() {
                     ref={fileInputRef}
                   />
                   {cropPreview && (
-                    <div className="mt-4 space-y-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CropIcon className="w-4 h-4" />
-                        <span className="text-sm">이미지 크롭 (드래그하여 원하는 영역을 선택하세요)</span>
-                      </div>
-                      
-                      <div className="border rounded-lg overflow-hidden">
-                        <ReactCrop
-                          crop={crop}
-                          onChange={(c) => setCrop(c)}
-                          onComplete={(c) => {
-                            setCompletedCrop(c);
-                            onCropComplete(c);
-                          }}
-                          aspect={2}
-                        >
-                          <img
-                            ref={imgRef}
-                            src={cropPreview}
-                            alt="원본 이미지"
-                            style={{ maxHeight: '300px', width: 'auto' }}
-                            onLoad={() => {
-                              if (imgRef.current && previewCanvasRef.current) {
-                                const initialCrop: PixelCrop = {
-                                  unit: 'px',
-                                  x: imgRef.current.width * 0.05,
-                                  y: imgRef.current.height * 0.25,
-                                  width: imgRef.current.width * 0.9,
-                                  height: imgRef.current.height * 0.5
-                                };
-                                setCompletedCrop(initialCrop);
-                                onCropComplete(initialCrop);
-                              }
-                            }}
-                          />
-                        </ReactCrop>
-                      </div>
-
-                      {completedCrop && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">미리보기 (800x400)</span>
-                          </div>
-                          <div className="border rounded-lg overflow-hidden bg-gray-100">
-                            <canvas
-                              ref={previewCanvasRef}
-                              style={{
-                                width: '100%',
-                                height: 'auto',
-                                maxHeight: '200px',
-                                objectFit: 'contain'
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
+                    <div className="mt-4">
+                      <ImageCrop 
+                        src={cropPreview}
+                        onCropComplete={handleCropComplete}
+                      />
                     </div>
                   )}
                 </div>
@@ -494,7 +354,6 @@ export default function Marketplace() {
       </Header>
 
       <div className="p-6">
-        {/* Filter Tabs */}
         <div className="flex space-x-4 mb-6">
           {filterTabs.map((tab) => (
             <Button
@@ -507,16 +366,15 @@ export default function Marketplace() {
           ))}
         </div>
 
-        {/* Background Grid */}
         {isLoading ? (
-          <div className="text-muted-foreground">로딩 중...</div>
+          <div className="text-center py-8">로딩 중...</div>
         ) : (
-          <BackgroundGrid
+          <BackgroundGrid 
             backgrounds={filteredBackgrounds}
-            onPreview={handlePreview}
-            onPurchase={handlePurchase}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onPreview={() => {}}
+            onPurchase={() => {}}
+            onEdit={() => {}}
+            onDelete={() => {}}
           />
         )}
       </div>
