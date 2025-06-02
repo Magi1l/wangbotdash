@@ -52,12 +52,18 @@ export function ImageCrop({ src, onCropComplete }: ImageCropProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 이미지 크기 비율 계산
-    const scaleX = img.naturalWidth / img.clientWidth;
-    const scaleY = img.naturalHeight / img.clientHeight;
+    // 이미지가 완전히 로드될 때까지 기다림
+    if (!img.complete || img.naturalWidth === 0) return;
 
     canvas.width = 800;
     canvas.height = 400;
+    
+    // 캔버스 클리어
+    ctx.clearRect(0, 0, 800, 400);
+
+    // 이미지의 실제 표시 크기와 원본 크기 비율 계산
+    const scaleX = img.naturalWidth / img.clientWidth;
+    const scaleY = img.naturalHeight / img.clientHeight;
 
     // 크롭 영역을 원본 이미지 좌표로 변환
     const sourceX = crop.x * scaleX;
@@ -65,16 +71,21 @@ export function ImageCrop({ src, onCropComplete }: ImageCropProps) {
     const sourceWidth = crop.width * scaleX;
     const sourceHeight = crop.height * scaleY;
 
-    // 캔버스 클리어
-    ctx.clearRect(0, 0, 800, 400);
+    console.log('Crop info:', {
+      cropArea: crop,
+      imageSize: { width: img.clientWidth, height: img.clientHeight },
+      naturalSize: { width: img.naturalWidth, height: img.naturalHeight },
+      scale: { x: scaleX, y: scaleY },
+      source: { x: sourceX, y: sourceY, width: sourceWidth, height: sourceHeight }
+    });
     
     // 크롭된 이미지를 800x400으로 그리기
     ctx.drawImage(
       img,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
+      Math.round(sourceX),
+      Math.round(sourceY),
+      Math.round(sourceWidth),
+      Math.round(sourceHeight),
       0,
       0,
       800,
@@ -263,6 +274,8 @@ export function ImageCrop({ src, onCropComplete }: ImageCropProps) {
           <div className="border rounded-lg overflow-hidden bg-gray-100">
             <canvas
               ref={previewCanvasRef}
+              width={800}
+              height={400}
               className="w-full h-auto max-h-48 object-contain"
             />
           </div>
