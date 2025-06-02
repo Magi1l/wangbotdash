@@ -154,13 +154,25 @@ export class MongoDBStorage implements IStorage {
 
   async createAchievement(achievement: InsertAchievement): Promise<Achievement> {
     const collection = getAchievementsCollection();
+    
+    // Clean up the data to remove null values from conditions
+    const cleanConditions = { ...achievement.conditions };
+    Object.keys(cleanConditions).forEach(key => {
+      if (cleanConditions[key] === null || cleanConditions[key] === undefined) {
+        delete cleanConditions[key];
+      }
+    });
+    
     const achievementData = {
       ...achievement,
+      conditions: cleanConditions,
       id: Date.now(),
       createdAt: new Date()
     };
     
+    console.log('MongoDB: Creating achievement with data:', achievementData);
     await collection.insertOne(achievementData);
+    console.log('MongoDB: Achievement created successfully');
     return achievementData as Achievement;
   }
 
@@ -192,14 +204,25 @@ export class MongoDBStorage implements IStorage {
 
   async createBackground(background: InsertBackground): Promise<Background> {
     const collection = getBackgroundsCollection();
+    
+    // Clean up the data to remove undefined values
+    const cleanBackground = { ...background };
+    Object.keys(cleanBackground).forEach(key => {
+      if (cleanBackground[key] === undefined) {
+        delete cleanBackground[key];
+      }
+    });
+    
     const backgroundData = {
-      ...background,
+      ...cleanBackground,
       id: Date.now(),
       sales: 0,
       createdAt: new Date()
     };
     
+    console.log('MongoDB: Creating background with data:', backgroundData);
     await collection.insertOne(backgroundData);
+    console.log('MongoDB: Background created successfully');
     return backgroundData as Background;
   }
 

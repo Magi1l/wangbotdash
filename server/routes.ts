@@ -959,11 +959,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         icon: type === 'level' ? 'crown' : type === 'hidden' ? 'question' : type === 'event' ? 'gift' : 'star',
         type: type || 'activity',
         isHidden: Boolean(isHidden),
-        conditions: conditions && conditions.length > 0 ? {
-          messages: conditions.find((c: any) => c.type === 'messages')?.value || null,
-          voiceTime: conditions.find((c: any) => c.type === 'voice_time')?.value || null,
-          level: conditions.find((c: any) => c.type === 'level')?.value || null,
-        } : { messages: 1 }, // Default condition
+        conditions: conditions && conditions.length > 0 ? 
+          conditions.reduce((acc: any, c: any) => {
+            if (c.type === 'messages' && c.value) acc.messages = parseInt(c.value);
+            if (c.type === 'voice_time' && c.value) acc.voiceTime = parseInt(c.value);
+            if (c.type === 'level' && c.value) acc.level = parseInt(c.value);
+            return acc;
+          }, {}) : { messages: 1 }, // Default condition
         rewards: {
           points: parseInt(pointReward) || 0,
           backgroundId: backgroundReward && backgroundReward !== 'none' ? parseInt(backgroundReward) : undefined,
