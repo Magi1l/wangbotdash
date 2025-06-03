@@ -16,9 +16,9 @@ export function ProfileCardCrop({ imageSrc, onCropComplete, onCancel }: ProfileC
   const [imageLoaded, setImageLoaded] = useState(false);
   const [scale, setScale] = useState(1);
 
-  // 프로필 카드 비율 (400:200 = 2:1)
-  const ASPECT_RATIO = 2;
-  const MAX_CANVAS_WIDTH = 600;
+  // 프로필 카드 비율 (450:150 = 3:1)
+  const ASPECT_RATIO = 3;
+  const MAX_CANVAS_WIDTH = 700;
   const MAX_CANVAS_HEIGHT = 400;
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function ProfileCardCrop({ imageSrc, onCropComplete, onCancel }: ProfileC
         
         setScale(image.width / displayWidth);
         
-        // 기본 크롭 영역 설정 (중앙에 2:1 비율)
+        // 기본 크롭 영역 설정 (중앙에 3:1 비율)
         const defaultWidth = Math.min(image.width, image.height * ASPECT_RATIO);
         const defaultHeight = defaultWidth / ASPECT_RATIO;
         const defaultX = (image.width - defaultWidth) / 2;
@@ -190,15 +190,15 @@ export function ProfileCardCrop({ imageSrc, onCropComplete, onCancel }: ProfileC
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 프로필 카드 최종 해상도 (400x200)
-    canvas.width = 400;
-    canvas.height = 200;
+    // 프로필 카드 최종 해상도 (450x150)
+    canvas.width = 450;
+    canvas.height = 150;
 
-    // 크롭된 영역을 400x200으로 리사이즈
+    // 크롭된 영역을 450x150으로 리사이즈
     ctx.drawImage(
       imageElement,
       cropArea.x, cropArea.y, cropArea.width, cropArea.height,
-      0, 0, 400, 200
+      0, 0, 450, 150
     );
 
     canvas.toBlob((blob) => {
@@ -220,7 +220,7 @@ export function ProfileCardCrop({ imageSrc, onCropComplete, onCancel }: ProfileC
   return (
     <div className="space-y-4">
       <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-        드래그하여 프로필 카드용 배경 영역을 선택하세요 (2:1 비율, 최종 400x200px)
+        드래그하여 프로필 카드용 배경 영역을 선택하세요 (3:1 비율, 최종 450x150px)
       </div>
       
       <div className="relative border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden flex justify-center">
@@ -235,7 +235,7 @@ export function ProfileCardCrop({ imageSrc, onCropComplete, onCancel }: ProfileC
         
         {cropArea.width > 0 && cropArea.height > 0 && (
           <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
-            {Math.round(cropArea.width)} × {Math.round(cropArea.height)} → 400 × 200
+            {Math.round(cropArea.width)} × {Math.round(cropArea.height)} → 450 × 150
           </div>
         )}
       </div>
