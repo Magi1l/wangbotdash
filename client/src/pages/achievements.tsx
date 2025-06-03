@@ -58,7 +58,7 @@ export default function Achievements() {
   const serverId = useServerId();
 
   const { data: achievements, isLoading } = useQuery({
-    queryKey: [`/api/servers/${serverId}/achievements`],
+    queryKey: [`/api/simple/achievements/${serverId}`],
     enabled: !!serverId,
   });
 
@@ -74,14 +74,22 @@ export default function Achievements() {
 
   const createAchievementMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('Creating achievement:', data);
-      console.log('Server ID:', serverId);
-      const result = await apiRequest("POST", `/api/servers/${serverId}/achievements`, data);
+      console.log('Creating achievement with simple API:', data);
+      
+      const requestData = {
+        serverId,
+        name: data.name,
+        description: data.description,
+        type: data.type || 'activity',
+        pointReward: data.pointReward || 0
+      };
+      
+      const result = await apiRequest("POST", `/api/simple/achievements`, requestData);
       console.log('Achievement created:', result);
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/servers/${serverId}/achievements`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/simple/achievements/${serverId}`] });
       setIsCreateOpen(false);
       resetForm();
       toast({
@@ -182,10 +190,10 @@ export default function Achievements() {
       return;
     }
 
-    if (achievementForm.conditions.length === 0) {
+    if (!achievementForm.description.trim()) {
       toast({
-        title: "입력 오류", 
-        description: "최소 하나의 조건을 추가해주세요.",
+        title: "입력 오류",
+        description: "업적 설명을 입력해주세요.",
         variant: "destructive"
       });
       return;
@@ -555,49 +563,4 @@ export default function Achievements() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className={`w-16 h-16 bg-gradient-to-br ${getAchievementColor(achievement.type)} rounded-xl flex items-center justify-center ${achievement.eventEndDate ? 'animate-pulse-gentle' : ''}`}>
-                        {getAchievementIcon(achievement.type)}
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-semibold text-foreground">{achievement.name}</h4>
-                        <p className="text-muted-foreground">{achievement.description}</p>
-                        <div className="flex items-center space-x-4 mt-2">
-                          <span className="text-green-500 text-sm">
-                            보상: {achievement.pointReward ? `${achievement.pointReward} 포인트` : ''}
-                            {achievement.backgroundReward ? ' + 배경' : ''}
-                          </span>
-                          {achievement.eventEndDate && (
-                            <span className="text-yellow-500 text-sm">
-                              이벤트 종료: {achievement.eventEndDate}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEditAchievement(achievement)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteAchievement(achievement)}
-                        disabled={deleteAchievementMutation.isPending}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+                      <div className={`w-16 h-16 bg-gradient-to-br ${getAchievementColor(achievement.type)} rounded-xl flex items-center justify-cent
