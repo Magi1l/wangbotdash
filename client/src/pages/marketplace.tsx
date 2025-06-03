@@ -1,414 +1,378 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Header } from "@/components/layout/header";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { BackgroundGrid } from "@/components/background-grid";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Upload } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ImageCrop } from "@/components/image-crop";
+import { Plus, Upload, Edit, Trash2, Star } from "lucide-react";
+import { SimpleImageCrop } from "@/components/simple-image-crop";
 
-// Extract serverId from URL path
 function useServerId() {
-  const currentPath = window.location.pathname;
-  const pathSegments = currentPath.split('/');
-  return pathSegments.length >= 3 ? pathSegments[2] : null;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('server') || '1376994014712037426';
 }
-
-const filterTabs = [
-  { id: "all", label: "전체" },
-  { id: "free", label: "무료" },
-  { id: "premium", label: "유료" },
-  { id: "achievement", label: "업적 전용" },
-];
 
 export default function Marketplace() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [uploadForm, setUploadForm] = useState({
+  const serverId = useServerId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [croppedImageBlob, setCroppedImageBlob] = useState<Blob | null>(null);
+  
+  const [backgroundForm, setBackgroundForm] = useState({
     name: "",
     description: "",
     price: 0,
-    category: "free",
-    requiredAchievementId: null as number | null
+    category: "custom" as const
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [cropPreview, setCropPreview] = useState<string>("");
-  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const serverId = useServerId();
 
-  const { data: backgrounds, isLoading } = useQuery({
-    queryKey: [`/api/servers/${serverId}/backgrounds`],
+  // 배경 목록 조회 (새 API 사용)
+  const { data: backgrounds = [], isLoading } = useQuery({
+    queryKey: [`/api/simple/backgrounds/${serverId}`],
     enabled: !!serverId,
   });
 
-  const { data: achievements } = useQuery({
-    queryKey: [`/api/servers/${serverId}/achievements`],
-    enabled: !!serverId,
-  });
-
-  const uploadMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      console.log('Uploading to:', `/api/servers/${serverId}/backgrounds`);
-      const response = await fetch(`/api/servers/${serverId}/backgrounds`, {
+  // 배경 업로드 mutation (새 API 사용)
+  const uploadBackgroundMutation = useMutation({
+    mutationFn: async (data: { formData: FormData }) => {
+      console.log('Uploading background with simple API');
+      console.log('FormData entries:');
+      for (let [key, value] of data.formData.entries()) {
+        console.log(`${key}:`, value);
+      }
+      
+      const response = await fetch('/api/simple/backgrounds', {
         method: 'POST',
-        body: formData
+        body: data.formData,
       });
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Upload failed:', response.status, errorText);
-        throw new Error(`Upload failed: ${response.status} ${errorText}`);
+        console.error('Error response:', errorText);
+        let error;
+        try {
+          error = JSON.parse(errorText);
+        } catch {
+          error = { error: errorText };
+        }
+        throw new Error(error.error || '배경 업로드 실패');
       }
-      return response.json();
+      
+      const result = await response.json();
+      console.log('Upload successful:', result);
+      return result;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/simple/backgrounds/${serverId}`] });
+      setIsCreateOpen(false);
+      resetForm();
       toast({
-        title: "업로드 성공",
-        description: "배경이 성공적으로 업로드되었습니다."
+        title: "배경 업로드 완료",
+        description: "새로운 배경이 성공적으로 업로드되었습니다.",
       });
-      setIsUploadOpen(false);
-      resetUploadForm();
-      queryClient.invalidateQueries({ queryKey: [`/api/servers/${serverId}/backgrounds`] });
     },
     onError: (error: any) => {
-      console.error('Upload mutation error:', error);
+      console.error('Background upload error:', error);
       toast({
-        title: "업로드 실패",
+        title: "배경 업로드 실패",
         description: `배경 업로드 중 오류가 발생했습니다: ${error.message}`,
         variant: "destructive"
       });
     }
   });
 
-  const resetUploadForm = () => {
-    setUploadForm({
+  const resetForm = () => {
+    setBackgroundForm({
       name: "",
       description: "",
       price: 0,
-      category: "free",
-      requiredAchievementId: null
+      category: "custom"
     });
-    setSelectedFile(null);
-    setCropPreview("");
-    setCroppedBlob(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setSelectedImage(null);
+    setCroppedImageBlob(null);
+    setShowCropper(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
-  const handleCropComplete = useCallback((blob: Blob) => {
-    setCroppedBlob(blob);
-  }, []);
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: "파일 오류",
-          description: "이미지 파일만 업로드할 수 있습니다.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "파일 크기 오류",
-          description: "파일 크기는 5MB 이하여야 합니다.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      setSelectedFile(file);
-      
       const reader = new FileReader();
       reader.onload = (e) => {
-        if (e.target?.result) {
-          const imageUrl = e.target.result as string;
-          setCropPreview(imageUrl);
-        }
-      };
-      reader.onerror = () => {
-        toast({
-          title: "파일 읽기 오류",
-          description: "파일을 읽는 중 오류가 발생했습니다.",
-          variant: "destructive"
-        });
+        const result = e.target?.result as string;
+        setSelectedImage(result);
+        setShowCropper(true);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleUploadSubmit = async () => {
-    console.log('Upload submit called');
-    console.log('Form data:', uploadForm);
-    console.log('Selected file:', selectedFile);
-    console.log('Cropped blob:', croppedBlob);
+  const handleCropComplete = (croppedBlob: Blob) => {
+    setCroppedImageBlob(croppedBlob);
+    setShowCropper(false);
+    toast({
+      title: "이미지 크롭 완료",
+      description: "이미지가 성공적으로 크롭되었습니다.",
+    });
+  };
 
-    if (!uploadForm.name.trim()) {
-      toast({
-        title: "입력 오류",
-        description: "배경 이름을 입력해주세요.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!uploadForm.description.trim()) {
-      toast({
-        title: "입력 오류", 
-        description: "배경 설명을 입력해주세요.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!selectedFile) {
-      toast({
-        title: "파일 선택 오류",
-        description: "업로드할 이미지를 선택해주세요.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!croppedBlob) {
-      toast({
-        title: "이미지 처리 오류",
-        description: "이미지 크롭이 완료될 때까지 기다려주세요.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      const croppedFile = new File([croppedBlob], `cropped_${selectedFile.name}`, { type: 'image/png' });
-      formData.append('image', croppedFile);
-      formData.append('name', uploadForm.name);
-      formData.append('description', uploadForm.description);
-      formData.append('price', uploadForm.price.toString());
-      formData.append('category', uploadForm.category);
-      if (uploadForm.requiredAchievementId && uploadForm.requiredAchievementId !== null) {
-        formData.append('requiredAchievementId', uploadForm.requiredAchievementId.toString());
-      }
-
-      console.log('Submitting form data...');
-      uploadMutation.mutate(formData);
-    } catch (error) {
-      console.error('Upload submit error:', error);
-      toast({
-        title: "업로드 오류",
-        description: "파일 업로드 중 오류가 발생했습니다.",
-        variant: "destructive"
-      });
+  const handleCropCancel = () => {
+    setShowCropper(false);
+    setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
-  // Mock data for demo
-  const mockBackgrounds = [
-    {
-      id: 1,
-      name: "Neon Dreams",
-      description: "추상적인 네온 그라데이션",
-      imageUrl: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?ixlib=rb-4.0.3&w=300&h=200&fit=crop",
-      creator: { name: "개발자123", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=20&h=20&fit=crop&crop=face" },
-      category: "free" as const,
-      price: 0,
-    },
-    {
-      id: 2,
-      name: "Cyber City",
-      description: "미래도시 야경",
-      imageUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?ixlib=rb-4.0.3&w=300&h=200&fit=crop",
-      creator: { name: "아티스트456" },
-      category: "premium" as const,
-      price: 50,
-    },
-    {
-      id: 3,
-      name: "Sunset Peak",
-      description: "일몰이 아름다운 산봉우리",
-      imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&w=300&h=200&fit=crop",
-      category: "achievement" as const,
-      isLocked: true,
-      requiredAchievement: "산악왕 업적 필요",
-    },
-    {
-      id: 4,
-      name: "Digital Flow",
-      description: "디지털 아트 패턴",
-      imageUrl: "https://images.unsplash.com/photo-1557672172-298e090bd0f1?ixlib=rb-4.0.3&w=300&h=200&fit=crop",
-      category: "owned" as const,
-      sales: 250,
-    },
-  ];
+  const handleSubmit = async () => {
+    try {
+      if (!backgroundForm.name.trim() || !backgroundForm.description.trim()) {
+        toast({
+          title: "입력 오류",
+          description: "이름과 설명을 모두 입력해주세요.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-  const filteredBackgrounds = mockBackgrounds.filter(bg => {
-    if (activeFilter === "all") return true;
-    if (activeFilter === "free") return bg.category === "free";
-    if (activeFilter === "premium") return bg.category === "premium";
-    if (activeFilter === "achievement") return bg.category === "achievement";
-    return true;
-  });
+      if (!croppedImageBlob) {
+        toast({
+          title: "이미지 필요",
+          description: "배경 이미지를 선택하고 크롭해주세요.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('serverId', serverId);
+      formData.append('name', backgroundForm.name.trim());
+      formData.append('description', backgroundForm.description.trim());
+      formData.append('price', backgroundForm.price.toString());
+      formData.append('category', backgroundForm.category);
+      formData.append('image', croppedImageBlob, 'background.png');
+
+      await uploadBackgroundMutation.mutateAsync({ formData });
+    } catch (error) {
+      console.error('Submit error:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">배경 목록을 불러오는 중...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="animate-fade-in">
-      <Header
-        title="배경 마켓플레이스"
-        description="커스텀 프로필 배경을 업로드하고 판매하세요"
-      >
-        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">배경 마켓플레이스</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            프로필 카드 배경을 관리하고 새로운 배경을 추가하세요
+          </p>
+        </div>
+        
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
-              배경 업로드
+              배경 추가
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>새 배경 업로드</DialogTitle>
+              <DialogTitle>새 배경 추가</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">이름</Label>
-                <Input
-                  id="name"
-                  value={uploadForm.name}
-                  onChange={(e) => setUploadForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="배경 이름을 입력하세요"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">설명</Label>
-                <Textarea
-                  id="description"
-                  value={uploadForm.description}
-                  onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="배경에 대한 설명을 입력하세요"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">카테고리</Label>
-                <Select
-                  value={uploadForm.category}
-                  onValueChange={(value) => setUploadForm(prev => ({ ...prev, category: value }))}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="free">무료</SelectItem>
-                    <SelectItem value="premium">유료</SelectItem>
-                    <SelectItem value="achievement">업적 전용</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {uploadForm.category === "premium" && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="price" className="text-right">가격</Label>
+            
+            {showCropper && selectedImage ? (
+              <SimpleImageCrop
+                imageSrc={selectedImage}
+                onCropComplete={handleCropComplete}
+                onCancel={handleCropCancel}
+              />
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">배경 이름</Label>
                   <Input
-                    id="price"
-                    type="number"
-                    value={uploadForm.price}
-                    onChange={(e) => setUploadForm(prev => ({ ...prev, price: parseInt(e.target.value) || 0 }))}
-                    className="col-span-3"
-                    placeholder="포인트 가격"
+                    id="name"
+                    value={backgroundForm.name}
+                    onChange={(e) => setBackgroundForm({ ...backgroundForm, name: e.target.value })}
+                    placeholder="배경 이름을 입력하세요"
                   />
                 </div>
-              )}
-              {uploadForm.category === "achievement" && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="achievement" className="text-right">필요 업적</Label>
-                  <Select
-                    value={uploadForm.requiredAchievementId?.toString() || "none"}
-                    onValueChange={(value) => setUploadForm(prev => ({ ...prev, requiredAchievementId: value === "none" ? null : parseInt(value) }))}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="업적을 선택하세요" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">선택 안함</SelectItem>
-                      {Array.isArray(achievements) && achievements.map((achievement: any) => (
-                        <SelectItem key={achievement.id} value={achievement.id.toString()}>
-                          {achievement.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="image" className="text-right">이미지</Label>
-                <div className="col-span-3">
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    ref={fileInputRef}
+
+                <div>
+                  <Label htmlFor="description">설명</Label>
+                  <Textarea
+                    id="description"
+                    value={backgroundForm.description}
+                    onChange={(e) => setBackgroundForm({ ...backgroundForm, description: e.target.value })}
+                    placeholder="배경에 대한 설명을 입력하세요"
+                    rows={3}
                   />
-                  {cropPreview && (
-                    <div className="mt-4">
-                      <ImageCrop 
-                        src={cropPreview}
-                        onCropComplete={handleCropComplete}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="price">가격 (포인트)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      value={backgroundForm.price}
+                      onChange={(e) => setBackgroundForm({ ...backgroundForm, price: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="category">카테고리</Label>
+                    <Select
+                      value={backgroundForm.category}
+                      onValueChange={(value: any) => setBackgroundForm({ ...backgroundForm, category: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="카테고리 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free">무료</SelectItem>
+                        <SelectItem value="premium">프리미엄</SelectItem>
+                        <SelectItem value="custom">커스텀</SelectItem>
+                        <SelectItem value="event">이벤트</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="image">배경 이미지</Label>
+                  <div className="mt-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      이미지 선택
+                    </Button>
+                  </div>
+                </div>
+
+                {croppedImageBlob && (
+                  <div>
+                    <Label>크롭된 이미지 미리보기</Label>
+                    <div className="mt-2 border rounded-lg overflow-hidden">
+                      <img
+                        src={URL.createObjectURL(croppedImageBlob)}
+                        alt="크롭된 배경"
+                        className="w-full h-48 object-cover"
                       />
                     </div>
-                  )}
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCreateOpen(false)}
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={uploadBackgroundMutation.isPending}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {uploadBackgroundMutation.isPending ? "업로드 중..." : "배경 추가"}
+                  </Button>
                 </div>
               </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
-                취소
-              </Button>
-              <Button 
-                onClick={handleUploadSubmit}
-                disabled={uploadMutation.isPending}
-              >
-                {uploadMutation.isPending ? "업로드 중..." : "업로드"}
-              </Button>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
-      </Header>
-
-      <div className="p-6">
-        <div className="flex space-x-4 mb-6">
-          {filterTabs.map((tab) => (
-            <Button
-              key={tab.id}
-              variant={activeFilter === tab.id ? "default" : "ghost"}
-              onClick={() => setActiveFilter(tab.id)}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </div>
-
-        {isLoading ? (
-          <div className="text-center py-8">로딩 중...</div>
-        ) : (
-          <BackgroundGrid 
-            backgrounds={filteredBackgrounds}
-            onPreview={() => {}}
-            onPurchase={() => {}}
-            onEdit={() => {}}
-            onDelete={() => {}}
-          />
-        )}
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {Array.isArray(backgrounds) && backgrounds.map((background: any) => (
+          <Card key={background.id || background._id} className="overflow-hidden">
+            <div className="aspect-video relative">
+              <img
+                src={background.imageUrl}
+                alt={background.name}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute top-2 right-2">
+                <Badge variant={background.category === 'free' ? 'secondary' : 'default'}>
+                  {background.category === 'free' ? '무료' :
+                   background.category === 'premium' ? '프리미엄' :
+                   background.category === 'custom' ? '커스텀' : '이벤트'}
+                </Badge>
+              </div>
+            </div>
+            
+            <CardHeader>
+              <CardTitle className="text-lg">{background.name}</CardTitle>
+              <CardDescription className="text-sm">
+                {background.description}
+              </CardDescription>
+            </CardHeader>
+            
+            <CardFooter className="flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <Star className="w-4 h-4 text-yellow-500" />
+                <span className="text-sm font-medium">{background.price} 포인트</span>
+              </div>
+              <Button size="sm" variant="outline">
+                구매
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+
+      {!Array.isArray(backgrounds) || backgrounds.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-gray-500 dark:text-gray-400 text-lg mb-4">
+            등록된 배경이 없습니다
+          </div>
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            첫 번째 배경 추가하기
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
