@@ -47,7 +47,8 @@ export default function Marketplace() {
     mutationFn: async (data: { formData: FormData }) => {
       console.log('Uploading background with simple API');
       console.log('FormData entries:');
-      for (let [key, value] of data.formData.entries()) {
+      const entries = Array.from(data.formData.entries());
+      for (let [key, value] of entries) {
         console.log(`${key}:`, value);
       }
       
