@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Upload, Edit, Trash2, Star } from "lucide-react";
-import { SimpleImageCrop } from "@/components/simple-image-crop";
+import { ImageCropEnhanced } from "@/components/image-crop-enhanced";
 
 function useServerId() {
   const params = new URLSearchParams(window.location.search);
@@ -205,7 +205,7 @@ export default function Marketplace() {
             </DialogHeader>
             
             {showCropper && selectedImage ? (
-              <SimpleImageCrop
+              <ImageCropEnhanced
                 imageSrc={selectedImage}
                 onCropComplete={handleCropComplete}
                 onCancel={handleCropCancel}
