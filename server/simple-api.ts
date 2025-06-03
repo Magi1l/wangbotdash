@@ -31,12 +31,29 @@ const upload = multer({
 
 export function setupSimpleAPI(app: Express) {
   
-  // 업적 생성 - 매우 단순화
+  // 업적 생성 - 상세 설정 포함
   app.post("/api/simple/achievements", async (req, res) => {
     try {
-      console.log('Simple achievement creation:', req.body);
+      console.log('Enhanced achievement creation:', req.body);
       
-      const { serverId, name, description, type = 'activity', pointReward = 0 } = req.body;
+      const { 
+        serverId, 
+        name, 
+        description, 
+        type = 'activity', 
+        pointReward = 0,
+        conditionType = 'message_count',
+        conditionValue = 100,
+        timeLimit = 0,
+        timeLimitUnit = 'days',
+        channelRestricted = false,
+        allowedChannels = [],
+        isEvent = false,
+        eventStartDate = '',
+        eventEndDate = '',
+        roleReward = '',
+        badgeIcon = ''
+      } = req.body;
       
       if (!serverId || !name || !description) {
         return res.status(400).json({ 
@@ -45,23 +62,73 @@ export function setupSimpleAPI(app: Express) {
         });
       }
 
+      // 조건 객체 생성
+      const conditions: any = {};
+      switch (conditionType) {
+        case 'message_count':
+          conditions.messages = Number(conditionValue);
+          break;
+        case 'voice_time':
+          conditions.voiceMinutes = Number(conditionValue);
+          break;
+        case 'level_reach':
+          conditions.level = Number(conditionValue);
+          break;
+        case 'consecutive_days':
+          conditions.consecutiveDays = Number(conditionValue);
+          break;
+        case 'reactions_given':
+          conditions.reactionsGiven = Number(conditionValue);
+          break;
+        case 'reactions_received':
+          conditions.reactionsReceived = Number(conditionValue);
+          break;
+        default:
+          conditions.messages = Number(conditionValue);
+      }
+
+      // 시간 제한 설정
+      if (timeLimit > 0) {
+        conditions.timeLimit = {
+          value: Number(timeLimit),
+          unit: String(timeLimitUnit)
+        };
+      }
+
+      // 채널 제한 설정
+      if (channelRestricted && Array.isArray(allowedChannels) && allowedChannels.length > 0) {
+        conditions.allowedChannels = allowedChannels;
+      }
+
+      // 보상 객체 생성
+      const rewards: any = {
+        points: Number(pointReward) || 0
+      };
+
+      if (roleReward && roleReward.trim()) {
+        rewards.roleId = String(roleReward).trim();
+      }
+
       const collection = getAchievementsCollection();
       const achievement = {
         id: Date.now(),
-        serverId,
+        serverId: String(serverId),
         name: String(name).trim(),
         description: String(description).trim(),
         type: String(type),
-        icon: 'star',
+        icon: badgeIcon && badgeIcon.trim() ? String(badgeIcon).trim() : 'star',
         isHidden: false,
-        conditions: { messages: 1 },
-        rewards: { points: Number(pointReward) || 0 },
-        eventEndDate: null,
-        createdAt: new Date()
+        conditions,
+        rewards,
+        eventStartDate: isEvent && eventStartDate ? new Date(eventStartDate) : null,
+        eventEndDate: isEvent && eventEndDate ? new Date(eventEndDate) : null,
+        isEvent: Boolean(isEvent),
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       await collection.insertOne(achievement);
-      console.log('Achievement created:', achievement.id);
+      console.log('Enhanced achievement created:', achievement.id);
       
       res.json({ success: true, data: achievement });
     } catch (error) {
